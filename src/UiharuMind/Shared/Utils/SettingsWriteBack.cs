@@ -51,6 +51,16 @@ public sealed class SettingsWriteBack
         return new LoadScope(this);
     }
 
+    /// <summary>
+    /// 进入「候选列表重建」作用域：<b>清空/重填 ComboBox 的 ItemsSource 时，控件会把
+    /// SelectedItem 推成 null 再写回 ViewModel</b>——那不是用户输入，期间一律不落盘。
+    /// 语义与 <see cref="BeginLoad"/> 相同，分开命名只为让调用点自解释：漏掉这一层，
+    /// 「重建候选」就会被当成「用户选了空」原样写进配置（设置页的模型下拉曾经这样被清成空串）。
+    /// 重建照常需要按名回填，所以重建与回填要一起包在同一个作用域里。
+    /// </summary>
+    /// <returns>退出作用域的凭据，用 <c>using</c> 持有</returns>
+    public IDisposable BeginRebuild() => BeginLoad();
+
     /// <summary>落盘。回填期间什么也不做</summary>
     public void Save()
     {

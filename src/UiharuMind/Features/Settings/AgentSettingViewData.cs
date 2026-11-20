@@ -189,28 +189,33 @@ public partial class AgentSettingViewData : ViewModelBase
     //================= 常规:通用子代理模型,变更即存 =================
     partial void OnGeneralSubAgentModelChanged(ModelRunningData? value)
     {
+        OnPropertyChanged(nameof(IsGeneralSubAgentModelNotDefault));
+        // 回填与候选重建期间的赋值不是用户意图：列表里暂时没有这个模型时界面会回落到 null，
+        // 那不代表用户要清掉配置——名字留着，模型回来就自动生效
+        if (_writeBack.IsLoading) return;
         AgentSettingConfig.Current.GeneralSubAgentModelName = value?.ModelName ?? string.Empty;
         _writeBack.Save();
-        OnPropertyChanged(nameof(IsGeneralSubAgentModelNotDefault));
-        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
+        StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     //================= 常规:脑模型,变更即存（ADR 0082） =================
     partial void OnBrainSubAgentModelChanged(ModelRunningData? value)
     {
+        OnPropertyChanged(nameof(IsBrainSubAgentModelNotDefault));
+        if (_writeBack.IsLoading) return;
         AgentSettingConfig.Current.BrainSubAgentModelName = value?.ModelName ?? string.Empty;
         _writeBack.Save();
-        OnPropertyChanged(nameof(IsBrainSubAgentModelNotDefault));
-        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
+        StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     //================= 常规:探索档模型,变更即存 =================
     partial void OnExplorerSubAgentModelChanged(ModelRunningData? value)
     {
+        OnPropertyChanged(nameof(IsExplorerSubAgentModelNotDefault));
+        if (_writeBack.IsLoading) return;
         AgentSettingConfig.Current.ExplorerSubAgentModelName = value?.ModelName ?? string.Empty;
         _writeBack.Save();
-        OnPropertyChanged(nameof(IsExplorerSubAgentModelNotDefault));
-        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
+        StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     //================= 常规:子代理默认角色卡,变更即存,之后新派出的通用子代理起生效 =================
@@ -254,7 +259,8 @@ public partial class AgentSettingViewData : ViewModelBase
 
     /// <summary>
     /// 模型列表刷新后同步下拉。已选还活着就按名找回，找不到就回到跟随主代理模式；
-    /// 全程包在回填作用域里，不会因为模型被删而把配置重写一遍。
+    /// 重建候选与回填整段包在闸门里：清空 ItemsSource 会让控件把 SelectedItem 推成 null
+    /// 写回属性，而那一下不是用户输入，不该落盘（见 <see cref="SettingsWriteBack.BeginRebuild"/>）。
     /// </summary>
     public void RefreshAvailableModels()
     {
@@ -271,9 +277,9 @@ public partial class AgentSettingViewData : ViewModelBase
             ?? AgentSettingConfig.Current.BrainSubAgentModelName;
         string? explorerName = ExplorerSubAgentModel?.ModelName
             ?? AgentSettingConfig.Current.ExplorerSubAgentModelName;
-        RebuildAvailableModels();
-        using (_writeBack.BeginLoad())
+        using (_writeBack.BeginRebuild())
         {
+            RebuildAvailableModels();
             GeneralSubAgentModel = string.IsNullOrEmpty(selectedName)
                 ? null
                 : AvailableModels.FirstOrDefault(m => m.ModelName == selectedName);

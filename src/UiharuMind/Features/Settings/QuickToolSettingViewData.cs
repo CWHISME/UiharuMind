@@ -70,24 +70,28 @@ public partial class QuickToolSettingViewData : ViewModelBase
 
     partial void OnDefaultModelChanged(ModelRunningData? value)
     {
+        OnPropertyChanged(nameof(IsDefaultModelNotDefault));
+        // 回填与候选重建期间的赋值不是用户意图：列表里暂时没有这个模型时界面会回落到 null，
+        // 那不代表用户要清掉配置——名字留着，模型回来就自动生效
+        if (_writeBack.IsLoading) return;
         QuickToolSetting.Current.DefaultModelName = value?.ModelName ?? string.Empty;
         _writeBack.Save();
-        OnPropertyChanged(nameof(IsDefaultModelNotDefault));
-        // 回填/模型列表刷新时 IsLoading 为真，不弹反馈；只有用户真的改了才提示
-        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
+        StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     partial void OnDefaultVisionModelChanged(ModelRunningData? value)
     {
+        OnPropertyChanged(nameof(IsDefaultVisionModelNotDefault));
+        if (_writeBack.IsLoading) return;
         QuickToolSetting.Current.DefaultVisionModelName = value?.ModelName ?? string.Empty;
         _writeBack.Save();
-        OnPropertyChanged(nameof(IsDefaultVisionModelNotDefault));
-        if (!_writeBack.IsLoading) StatusText = Loc.Text(LangKey.ShortcutSavedTips);
+        StatusText = Loc.Text(LangKey.ShortcutSavedTips);
     }
 
     /// <summary>
     /// 模型列表刷新后同步两个下拉。已选对象还活着就按名找回，找不到就回到跟随模式；
-    /// 全程包在回填作用域里，不会因为模型被删而把配置重写一遍。
+    /// 重建候选与回填整段包在闸门里：清空 ItemsSource 会让控件把 SelectedItem 推成 null
+    /// 写回属性，而那一下不是用户输入，不该落盘（见 <see cref="SettingsWriteBack.BeginRebuild"/>）。
     /// </summary>
     public void RefreshAvailableModels()
     {
@@ -100,9 +104,9 @@ public partial class QuickToolSettingViewData : ViewModelBase
 
         string? textName = DefaultModel?.ModelName ?? QuickToolSetting.Current.DefaultModelName;
         string? visionName = DefaultVisionModel?.ModelName ?? QuickToolSetting.Current.DefaultVisionModelName;
-        LoadAvailableModels();
-        using (_writeBack.BeginLoad())
+        using (_writeBack.BeginRebuild())
         {
+            LoadAvailableModels();
             DefaultModel = string.IsNullOrEmpty(textName)
                 ? null
                 : AvailableModels.FirstOrDefault(m => m.ModelName == textName);

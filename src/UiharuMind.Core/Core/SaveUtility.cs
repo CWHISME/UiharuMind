@@ -28,7 +28,8 @@ public static class SaveUtility
     /// </summary>
     public static readonly JsonSerializerOptions SaveJsonOptions = CreateSourceGenOptions();
 
-    private static int _suppressSaveDepth;
+    /// <summary>反序列化抑制深度，<b>按线程</b>：只有正在反序列化的那个线程上才是半成品</summary>
+    [ThreadStatic] private static int _suppressSaveDepth;
 
     /// <summary>
     /// 反序列化期间是否应抑制 <see cref="Configs.ConfigBase.Save"/>。
@@ -36,12 +37,17 @@ public static class SaveUtility
     /// 每调一次就把<b>半成品</b>对象写盘——排在带 Save 的 setter 之后的普通属性（
     /// <c>FavoriteCharacterIds</c>、<c>SettingsScrollPositions</c> 等）还没被赋值，就被写成默认值，
     /// 把磁盘上已存在的值覆盖成空。加载期间抑制 Save，整份读完后再放行。
+    /// <para>
+    /// 抑制范围是<b>当前线程</b>：藏在反序列化的那个线程上才是半成品。做成进程级一份的话，
+    /// 任何线程读盘期间都会把别的线程上的保存静默吞掉——用户点一下保存，恰好别处正在读角色卡，
+    /// 这次改动就凭空消失，连一条日志都没有。
+    /// </para>
     /// </summary>
-    internal static bool SaveSuppressed => Volatile.Read(ref _suppressSaveDepth) > 0;
+    internal static bool SaveSuppressed => _suppressSaveDepth > 0;
 
-    private static void EnterSuppressSave() => Interlocked.Increment(ref _suppressSaveDepth);
+    private static void EnterSuppressSave() => _suppressSaveDepth++;
 
-    private static void ExitSuppressSave() => Interlocked.Decrement(ref _suppressSaveDepth);
+    private static void ExitSuppressSave() => _suppressSaveDepth--;
 
     private static JsonSerializerOptions CreateSourceGenOptions()
     {
