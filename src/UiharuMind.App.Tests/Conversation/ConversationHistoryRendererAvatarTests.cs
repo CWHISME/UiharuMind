@@ -21,8 +21,9 @@ public class ConversationHistoryRendererAvatarTests
     public ConversationHistoryRendererAvatarTests()
     {
         ObservableCollection<ConversationItemBase> items = new();
-        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService());
-        _renderer = new ConversationHistoryRenderer(items, actions, () => null, () => true, () => null, () => null);
+        ConversationItemSink sink = new(items);
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
+        _renderer = new ConversationHistoryRenderer(sink, actions, () => null, () => true, () => null, () => null);
     }
 
     [Fact]

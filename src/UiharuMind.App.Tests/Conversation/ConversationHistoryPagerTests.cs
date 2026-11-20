@@ -51,9 +51,10 @@ public class ConversationHistoryPagerTests
                 History.Add(new ChatMessage(i % 2 == 0 ? ChatRole.User : ChatRole.Assistant, $"m{i}"));
             }
 
-            ConversationItemActions actions = new(Items, new StubHost(), new RecordingMessageService());
-            ConversationHistoryRenderer renderer = new(Items, actions, () => null, () => false, () => null, () => null);
-            Pager = new ConversationHistoryPager(Items, renderer, () => Unreadable ?? History, () => IsDisplayed,
+            ConversationItemSink sink = new(Items);
+            ConversationItemActions actions = new(Items, new StubHost(), new RecordingMessageService(), sink);
+            ConversationHistoryRenderer renderer = new(sink, actions, () => null, () => false, () => null, () => null);
+            Pager = new ConversationHistoryPager(sink, renderer, () => Unreadable ?? History, () => IsDisplayed,
                 () => true, () => false, maxItems);
         }
     }

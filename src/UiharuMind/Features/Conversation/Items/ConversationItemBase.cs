@@ -136,11 +136,44 @@ public abstract partial class ConversationItemBase : ObservableObject
         set
         {
             _sourceMessage = value;
+            // 有来源就该有身份：两者是同一个事实的两个面（它属于哪条消息）。
+            // 显式定过身份的（转录器、回放）不动——一条消息拆出的多张同类卡靠序号区分，
+            // 这里推不出序号，只给一个兜底值
+            if (value != null && Identity == null)
+                Identity = ConversationItemIdentity.ForMessage(value, ConversationItemKinds.Of(this));
             RefreshFromSource();
         }
     }
 
     private Microsoft.Extensions.AI.ChatMessage? _sourceMessage;
+
+    /// <summary>
+    /// 条目的稳定身份：它对应哪条消息的哪个内容块。判重、对账、裁剪锚点都问它，
+    /// 不再问对象引用或显示文本（两者都会失配，见 <see cref="ConversationItemIdentity"/>）。
+    ///
+    /// <para>
+    /// 流式阶段消息还没落盘，这里是临时身份；落盘配对后由 <c>Rebind</c> 换成正式身份。
+    /// 为 null 表示这个条目不对应任何历史消息（占位卡、错误提示、审批卡）。
+    /// </para>
+    /// </summary>
+    public ConversationItemIdentity? Identity { get; private set; }
+
+    /// <summary>
+    /// 给条目定身份。只在创建时与配对回填时调——身份一旦定下就不该再变，
+    /// 否则「已渲染集合」会与集合里的条目对不上
+    /// </summary>
+    /// <param name="identity">身份</param>
+    public void SetIdentity(ConversationItemIdentity identity) => Identity = identity;
+
+    /// <summary>
+    /// 把临时身份换成正式身份（消息落盘、标识已知时）。条目对象本身不动，界面因此不会闪
+    /// </summary>
+    /// <param name="message">配对到的历史消息</param>
+    public void RebindIdentity(Microsoft.Extensions.AI.ChatMessage message)
+    {
+        if (Identity is not { } identity) return;
+        Identity = identity.Rebind(message);
+    }
 
     /// <summary>
     /// 从来源消息重读挂在它身上的标记（接上来源时自动调；标记是事后盖的，由调用方在那之后再刷一次）

@@ -46,7 +46,7 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _hasLaterMessages;
 
-    private readonly ObservableCollection<ConversationItemBase> _items;
+    private readonly ConversationItemSink _sink;
     private readonly ConversationHistoryRenderer _renderer;
     private readonly Func<IReadOnlyList<ChatMessage>> _historySource;
     private readonly Func<bool> _isDisplayed;
@@ -61,7 +61,7 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// <summary>
     /// 构造
     /// </summary>
-    /// <param name="items">会话条目集合（界面绑的那一份）</param>
+    /// <param name="sink">条目集合的唯一写入口</param>
     /// <param name="renderer">把历史画成条目</param>
     /// <param name="historySource">当前完整历史（现取现用：中途换会话也能跟上）</param>
     /// <param name="isDisplayed">本实例此刻是否显示在界面上</param>
@@ -69,30 +69,36 @@ public sealed partial class ConversationHistoryPager : ObservableObject
     /// <param name="isTurnRunning">有一轮正往这个会话流内容（回到最新时末尾那次工具调用的结果可能还在路上）</param>
     /// <param name="maxItems">运行期条目上限</param>
     /// <param name="sessionIdSource">日志用的会话标识；没有就不报</param>
-    public ConversationHistoryPager(ObservableCollection<ConversationItemBase> items,
+    public ConversationHistoryPager(ConversationItemSink sink,
         ConversationHistoryRenderer renderer, Func<IReadOnlyList<ChatMessage>> historySource,
         Func<bool> isDisplayed, Func<bool> isStuckToBottom, Func<bool> isTurnRunning,
         int maxItems = ConversationItemWindowTrimmer.AgentMaxItems, Func<string?>? sessionIdSource = null)
     {
-        _items = items;
+        _sink = sink;
         _renderer = renderer;
         _historySource = historySource;
         _isDisplayed = isDisplayed;
         _isTurnRunning = isTurnRunning;
         _sessionIdSource = sessionIdSource;
         // 不在界面上的实例没有会被抽走的视口,照裁——后台跑着的那个正是最该裁的
-        _trimmer = new ConversationItemWindowTrimmer(items, Window, historySource,
+        _trimmer = new ConversationItemWindowTrimmer(sink, Window, historySource,
             () => !isDisplayed() || isStuckToBottom(), maxItems);
     }
 
     /// <summary>
     /// 回放历史，只渲染最近的<b>首屏</b>。凑够一窗的那几条由 <see cref="FillFirstWindow"/> 在界面可见之后补，
-    /// 更早的由 <see cref="LoadEarlier"/> 按批前插——非虚拟化列表靠数据开窗保住长会话性能
+    /// 更早的由 <see cref="LoadEarlier"/> 按批前插——非虚拟化列表靠数据开窗保住长会话性能。
+    ///
+    /// <para>
+    /// <b>自己负责清空</b>：从前正确性依赖唯一调用点先调 <c>ClearStreamState</c>，
+    /// 而「回放」这个名字本身就该是「换成这一份」——隐式担保一旦多一个调用点就是重复条目。
+    /// </para>
     /// </summary>
     /// <param name="messages">完整历史</param>
     /// <param name="liveTail">有一轮正跑着：历史末尾的工具调用结果多半正在路上，不能按「没有结果」收掉</param>
     public void Replay(IReadOnlyList<ChatMessage> messages, bool liveTail)
     {
+        _sink.DiscardAll();
         (int from, int to) = Window.Reset(messages.Count);
         SyncFlags();
         _renderer.Append(messages, from, to, liveTail);
@@ -165,9 +171,9 @@ public sealed partial class ConversationHistoryPager : ObservableObject
 
             StartupPhaseProbe.End("conversation/trim-delay", queuedAt);
             long trimBegin = StartupPhaseProbe.Begin();
-            int before = _items.Count;
+            int before = _sink.Count;
             if (_trimmer.TrimToBackgroundBudget()) SyncFlags();
-            StartupPhaseProbe.End($"conversation/trim:{before}->{_items.Count}", trimBegin);
+            StartupPhaseProbe.End($"conversation/trim:{before}->{_sink.Count}", trimBegin);
             // Normal 而不是 Background:切走的会话往往正在流式输出,而流式期间高优先级任务
             // 不断进来,Background 会被饿着——那等于切回去时这次裁剪还没发生。
             // Normal 同样排在 DataContext 替换之后(替换是同步做完的),不会误裁到已经绑上的集合

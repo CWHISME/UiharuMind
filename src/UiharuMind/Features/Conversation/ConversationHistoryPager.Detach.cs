@@ -138,6 +138,6 @@ public sealed partial class ConversationHistoryPager
     // 截断重载与回到最新都是整窗换掉:条目里有本会话现解出来的大位图,先摘绑定再释放
     private void DiscardItems()
     {
-        _items.DiscardAll();
+        _sink.DiscardAll();
     }
 }

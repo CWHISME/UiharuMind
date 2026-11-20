@@ -186,7 +186,8 @@ public partial class AttachmentTrayViewData : ObservableObject
     /// <returns>用户消息</returns>
     public ChatMessage BuildUserMessage(string text, List<ConversationAttachment>? attachments)
     {
-        if (attachments == null || attachments.Count == 0) return new ChatMessage(ChatRole.User, text);
+        if (attachments == null || attachments.Count == 0)
+            return WithIdentity(new ChatMessage(ChatRole.User, text));
 
         bool isVision = ResolveVisionModel(attachments);
         List<AIContent>? contents = isVision ? new() { new TextContent(text) } : null;
@@ -204,8 +205,20 @@ public partial class AttachmentTrayViewData : ObservableObject
         // 文件引用与用户文本合成同一份文本:同一条 user 消息只保留一块 text。
         // 曾拆成「用户正文 + [Attached file] 引用」两块 TextContent,部分 OpenAI 兼容网关会 400
         return isVision
-            ? ComposeVisionMessage(contents!, text, fileReferences)
-            : new ChatMessage(ChatRole.User, JoinUserTextWithFileReferences(text, fileReferences));
+            ? WithIdentity(ComposeVisionMessage(contents!, text, fileReferences))
+            : WithIdentity(new ChatMessage(ChatRole.User, JoinUserTextWithFileReferences(text, fileReferences)));
+    }
+
+    /// <summary>
+    /// 给用户消息盖稳定标识。界面在它落盘之前就要认它（乐观气泡、流式配对），
+    /// 而服务端只给模型回复发标识——用户消息的标识只能由我们造
+    /// </summary>
+    /// <param name="message">用户消息</param>
+    /// <returns>同一条消息</returns>
+    private static ChatMessage WithIdentity(ChatMessage message)
+    {
+        ChatMessageIdentity.Ensure(message);
+        return message;
     }
 
     /// <summary>

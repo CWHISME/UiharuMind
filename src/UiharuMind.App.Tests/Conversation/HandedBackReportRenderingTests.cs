@@ -23,12 +23,19 @@ public class HandedBackReportRenderingTests
     [InlineData(true)]
     public void Report_AlreadyDrawnByTheStream_AppearsOnceOnly(bool observedTurn)
     {
-        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
         ChatMessage report = Report();
         List<ChatMessage> history = [report];
 
-        // 流：注入被消费时画出的那一份，来源就是这条消息本身
-        foreach (TextConversationItem item in renderer.CreateUserItems(report)) items.Add(item);
+        // 流：注入被消费时画出的那一份，来源就是这条消息本身。身份与流式侧同一口径
+        IReadOnlyList<TextConversationItem> streamed = renderer.CreateUserItems(report);
+        for (int i = 0; i < streamed.Count; i++)
+        {
+            streamed[i].SetIdentity(ConversationItemIdentity.ForMessage(report, EConversationItemKind.Narration, i));
+            sink.Add(streamed[i]);
+        }
+
         Assert.Single(items);
 
         // 落盘：同一条消息进了历史，界面收到追加通知
@@ -41,7 +48,8 @@ public class HandedBackReportRenderingTests
     [Fact]
     public void Report_NotDrawnYet_IsDrawnFromHistory()
     {
-        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
         List<ChatMessage> history = [Report()];
 
         renderer.AppendPersisted(history, 0, ownTurn: true, streaming: false);
@@ -58,12 +66,14 @@ public class HandedBackReportRenderingTests
             },
         };
 
-    private static (ObservableCollection<ConversationItemBase> Items, ConversationHistoryRenderer Renderer) Fixture()
+    private static (ObservableCollection<ConversationItemBase> Items, ConversationHistoryRenderer Renderer,
+        ConversationItemSink Sink) Fixture()
     {
         ObservableCollection<ConversationItemBase> items = new();
-        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService());
-        ConversationHistoryRenderer renderer = new(items, actions, () => null, () => false, () => null, () => null);
-        return (items, renderer);
+        ConversationItemSink sink = new(items);
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
+        ConversationHistoryRenderer renderer = new(sink, actions, () => null, () => false, () => null, () => null);
+        return (items, renderer, sink);
     }
 
     private sealed class StubHost : IConversationItemActionHost

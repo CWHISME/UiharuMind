@@ -274,6 +274,7 @@ public static class HistoryHandoff
     {
         return new ChatMessage(ChatRole.Assistant, $"[{Title}]\n{note}")
         {
+            MessageId = ChatMessageIdentity.NewId(),
             CreatedAt = DateTimeOffset.Now,
             AdditionalProperties = new AdditionalPropertiesDictionary { [ChatMessageAnnotations.Handoff] = Title },
         };
@@ -290,6 +291,7 @@ public static class HistoryHandoff
     {
         return new ChatMessage(ChatRole.Assistant, $"[{ClearTitle}]\n{body}")
         {
+            MessageId = ChatMessageIdentity.NewId(),
             CreatedAt = DateTimeOffset.Now,
             AdditionalProperties = new AdditionalPropertiesDictionary { [ChatMessageAnnotations.Handoff] = ClearTitle },
         };

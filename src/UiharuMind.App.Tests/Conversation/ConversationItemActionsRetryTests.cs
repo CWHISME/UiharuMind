@@ -53,7 +53,9 @@ public class ConversationItemActionsRetryTests
     public void WiringAssistantMessage_ProvidesRetry()
     {
         ChatSession session = TransientSession();
-        ConversationItemActions actions = new(new ObservableCollection<ConversationItemBase>(), new RecordingHost(session), new RecordingMessageService());
+        ObservableCollection<ConversationItemBase> items = new();
+        ConversationItemActions actions = new(items, new RecordingHost(session), new RecordingMessageService(),
+            new ConversationItemSink(items));
 
         ChatMessage reply = AssistantText("回答");
         ProbeItem item = actions.Wire(new ProbeItem(), reply);
@@ -65,7 +67,9 @@ public class ConversationItemActionsRetryTests
     public void WiringUserMessage_StillProvidesRetry()
     {
         ChatSession session = TransientSession();
-        ConversationItemActions actions = new(new ObservableCollection<ConversationItemBase>(), new RecordingHost(session), new RecordingMessageService());
+        ObservableCollection<ConversationItemBase> items = new();
+        ConversationItemActions actions = new(items, new RecordingHost(session), new RecordingMessageService(),
+            new ConversationItemSink(items));
 
         ChatMessage question = UserMessage("提问");
         ProbeItem item = actions.Wire(new ProbeItem(), question);
@@ -77,7 +81,9 @@ public class ConversationItemActionsRetryTests
     public void WiringNarration_DoesNotProvideRetry()
     {
         ChatSession session = TransientSession();
-        ConversationItemActions actions = new(new ObservableCollection<ConversationItemBase>(), new RecordingHost(session), new RecordingMessageService());
+        ObservableCollection<ConversationItemBase> items = new();
+        ConversationItemActions actions = new(items, new RecordingHost(session), new RecordingMessageService(),
+            new ConversationItemSink(items));
 
         ChatMessage narration = new(ChatRole.Assistant, "开场白")
         {
@@ -98,7 +104,8 @@ public class ConversationItemActionsRetryTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
-        ConversationItemActions actions = new(items, host, new RecordingMessageService());
+        ConversationItemActions actions = new(items, host, new RecordingMessageService(),
+            new ConversationItemSink(items));
 
         ChatMessage reply = AssistantText("开场回复");
         session.History.Add(reply);
@@ -122,7 +129,8 @@ public class ConversationItemActionsRetryTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
-        ConversationItemActions actions = new(items, host, new RecordingMessageService());
+        ConversationItemActions actions = new(items, host, new RecordingMessageService(),
+            new ConversationItemSink(items));
 
         ChatMessage narration = new(ChatRole.User, "开场白")
         {
@@ -153,7 +161,7 @@ public class ConversationItemActionsRetryTests
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
         RecordingMessageService confirms = new() { ConfirmResult = false }; //点「取消」
-        ConversationItemActions actions = new(items, host, confirms);
+        ConversationItemActions actions = new(items, host, confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("问题1");
         ChatMessage reply0 = AssistantText("回答1");
@@ -181,7 +189,7 @@ public class ConversationItemActionsRetryTests
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, host, confirms);
+        ConversationItemActions actions = new(items, host, confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("问题1");
         ChatMessage reply0 = AssistantText("回答1");
@@ -200,6 +208,49 @@ public class ConversationItemActionsRetryTests
     }
 
     /// <summary>
+    /// 用户重试后自己的提问气泡必须重新出现。
+    ///
+    /// 旧用例用 items.Add 直塞条目、身份表是空的，撞不上死键；这里按生产路径经 sink 登记。
+    /// Retry 会 DiscardRange 掉旧气泡再以同一条消息的身份 Add 新气泡——若 DiscardRange 只摘条目
+    /// 不销身份，新气泡会被判重静默吞掉，用户就再也看不见自己刚重试的提问。
+    /// </summary>
+    [Fact]
+    public async Task RetryingUserMessage_RebuildsTheBubbleEvenWhenIdentityWasRegistered()
+    {
+        ChatSession session = TransientSession();
+        ObservableCollection<ConversationItemBase> items = new();
+        ConversationItemSink sink = new(items);
+        RecordingHost host = new(session);
+        ConversationItemActions actions = new(items, host, new RecordingMessageService(), sink);
+
+        ChatMessage user0 = UserMessage("问题1");
+        ChatMessage reply0 = AssistantText("回答1");
+        ChatMessage user1 = UserMessage("问题2");
+        ChatMessage reply1 = AssistantText("回答2");
+        session.History.AddRange([user0, reply0, user1, reply1]);
+
+        // 经 sink 登记身份，和实时/回放路径一致
+        TextConversationItem bubble = new(true, false) { Message = "问题2" };
+        bubble.SetIdentity(ConversationItemIdentity.ForMessage(user1, EConversationItemKind.Text));
+        actions.Wire(bubble, user1);
+        Assert.True(sink.Add(bubble));
+        TextConversationItem trailing = new(false, false) { Message = "回答2" };
+        trailing.SetIdentity(ConversationItemIdentity.ForMessage(reply1, EConversationItemKind.Text));
+        Assert.True(sink.Add(trailing));
+
+        await bubble.RetryCommand.ExecuteAsync(null);
+
+        // 截掉的旧气泡都走了；新气泡顶上，身份是同一条消息的那一个
+        TextConversationItem rebuilt = Assert.Single(items.OfType<TextConversationItem>());
+        Assert.NotSame(bubble, rebuilt);
+        Assert.Equal("问题2", rebuilt.Message);
+        Assert.Same(user1, rebuilt.SourceMessage);
+        Assert.True(sink.IsRendered(user1, EConversationItemKind.Text));
+        Assert.Equal(2, session.History.Count);
+        Assert.Same(user1, host.LastInput);
+    }
+
+    /// <summary>
     /// 助手消息同样一律先问：只删它自己一条也问，删了回不来
     /// </summary>
     [Fact]
@@ -209,7 +260,7 @@ public class ConversationItemActionsRetryTests
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
         RecordingMessageService confirms = new() { ConfirmResult = false };
-        ConversationItemActions actions = new(items, host, confirms);
+        ConversationItemActions actions = new(items, host, confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("问题1");
         ChatMessage reply0 = AssistantText("回答1");
@@ -238,7 +289,7 @@ public class ConversationItemActionsRetryTests
         ObservableCollection<ConversationItemBase> items = new();
         RecordingHost host = new(session);
         RecordingMessageService confirms = new() { ConfirmResult = true };
-        ConversationItemActions actions = new(items, host, confirms);
+        ConversationItemActions actions = new(items, host, confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("问题1");
         ChatMessage reply0 = AssistantText("回答1");

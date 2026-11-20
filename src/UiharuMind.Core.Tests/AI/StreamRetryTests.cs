@@ -222,15 +222,15 @@ public class StreamRetryTests
         Assert.IsType<TextContent>(contents[^1]);
     }
 
-    /// <summary>标记只给界面看：落盘前摘掉，否则它会跟着历史走，还在下一发请求里占位</summary>
+    /// <summary>标记只给界面看：落盘前摘掉，否则它会跟着历史走、还在下一发请求里占位</summary>
     [Fact]
     public void RestartMarker_IsNotPersistedIntoHistory()
     {
         ChatSession session = new("retry-test", new CharacterData { CharacterId = "retry-test" }) { IsTransient = true };
         ChatMessage reply = new(ChatRole.Assistant, new List<AIContent>
         {
-            new TextContent("正文"),
             StreamRestartContent.Instance,
+            new TextContent("正文"),
         });
 
         SessionChatHistoryProvider.AppendOwned(session, [reply], DateTimeOffset.Now);
@@ -238,6 +238,51 @@ public class StreamRetryTests
         ChatMessage stored = Assert.Single(session.History);
         Assert.DoesNotContain(stored.Contents, content => content is StreamRestartContent);
         Assert.Single(stored.Contents);
+    }
+
+    /// <summary>
+    /// 标记<b>之前</b>那一段是作废的那一发：框架按 id 聚合增量，会把标记并进被作废的那条消息里，
+    /// 于是历史里多出一条只带思考的助手消息——重开会话就多一张思考卡（真实档案 18 个会话 57 处）。
+    /// 落盘时整条丢掉，而不是只摘标记
+    /// </summary>
+    [Fact]
+    public void SupersededAttempt_IsDroppedEntirely()
+    {
+        ChatSession session = new("retry-test", new CharacterData { CharacterId = "retry-test" }) { IsTransient = true };
+        ChatMessage superseded = new(ChatRole.Assistant, new List<AIContent>
+        {
+            new TextReasoningContent("第一发的思考"),
+            StreamRestartContent.Instance,
+        });
+        ChatMessage survivor = new(ChatRole.Assistant, new List<AIContent>
+        {
+            new TextReasoningContent("第二发的思考"),
+            new FunctionCallContent("call_1", "Read", new Dictionary<string, object?>()),
+        });
+
+        SessionChatHistoryProvider.AppendOwned(session, [superseded, survivor], DateTimeOffset.Now);
+
+        ChatMessage stored = Assert.Single(session.History);
+        Assert.Same(survivor, stored);
+        Assert.Equal("第二发的思考", Assert.IsType<TextReasoningContent>(stored.Contents[0]).Text);
+    }
+
+    /// <summary>标记落在消息开头（第一发一个字都没产出）时只摘标记，那条消息本身要留下</summary>
+    [Fact]
+    public void RestartMarkerAtHead_KeepsTheMessage()
+    {
+        ChatSession session = new("retry-test", new CharacterData { CharacterId = "retry-test" }) { IsTransient = true };
+        ChatMessage reply = new(ChatRole.Assistant, new List<AIContent>
+        {
+            StreamRestartContent.Instance,
+            new TextReasoningContent("重发那一发的思考"),
+        });
+
+        SessionChatHistoryProvider.AppendOwned(session, [reply], DateTimeOffset.Now);
+
+        ChatMessage stored = Assert.Single(session.History);
+        Assert.Single(stored.Contents);
+        Assert.IsType<TextReasoningContent>(stored.Contents[0]);
     }
 
     /// <summary>

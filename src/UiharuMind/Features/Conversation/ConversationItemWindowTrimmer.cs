@@ -95,28 +95,28 @@ public sealed class ConversationItemWindowTrimmer
     /// </summary>
     private const double MidTurnAnchorFactor = 1.5;
 
-    private readonly IList<ConversationItemBase> _items;
+    private readonly ConversationItemSink _sink;
     private readonly HistoryWindow _window;
     private readonly Func<IReadOnlyList<ChatMessage>> _historySource;
     private readonly Func<bool> _canTrimSource;
     private readonly int _maxItems;
     private readonly int _backgroundMaxItems;
 
-    /// <param name="items">界面条目集合（就地裁剪）</param>
+    /// <param name="sink">条目集合的唯一写入口（就地裁剪）</param>
     /// <param name="window">与加载期共用的那个渲染窗口</param>
     /// <param name="historySource">当前完整历史的来源（现取现用：中途换会话也能跟上）</param>
     /// <param name="canTrimSource">此刻裁剪是否不会抽走用户正在读的视口</param>
     /// <param name="maxItems">条目上限，非正值按默认处理</param>
     /// <param name="backgroundMaxItems">切走之后的条目上限，非正值按默认处理</param>
     public ConversationItemWindowTrimmer(
-        IList<ConversationItemBase> items,
+        ConversationItemSink sink,
         HistoryWindow window,
         Func<IReadOnlyList<ChatMessage>> historySource,
         Func<bool> canTrimSource,
         int maxItems = AgentMaxItems,
         int backgroundMaxItems = DefaultBackgroundMaxItems)
     {
-        _items = items;
+        _sink = sink;
         _window = window;
         _historySource = historySource;
         _canTrimSource = canTrimSource;
@@ -150,22 +150,22 @@ public sealed class ConversationItemWindowTrimmer
     /// <returns>真的裁掉了条目返回 true</returns>
     private bool TrimTo(int maxItems)
     {
-        if (_items.Count <= maxItems) return false;
+        if (_sink.Count <= maxItems) return false;
         if (!_canTrimSource()) return false;
 
-        int from = LimitByPendingApproval(_items.Count - maxItems);
+        int from = LimitByPendingApproval(_sink.Count - maxItems);
         IReadOnlyList<ChatMessage> history = _historySource();
 
         // 锚点可能在历史里找不到(用户删过消息),备选依次试,而不是一试不中就整轮不裁
         foreach (int anchor in AnchorCandidates(from, maxItems))
         {
             if (anchor <= 0) continue; //没有可用锚点,或锚点就是第一条(没东西可裁)
-            if (_items[anchor].SourceMessage is not { } source) continue;
+            if (_sink.Items[anchor].SourceMessage is not { } source) continue;
 
             int historyIndex = IndexOfSame(history, source);
             if (historyIndex < 0) continue;
 
-            _items.DiscardRange(0, anchor);
+            _sink.DiscardRange(0, anchor);
 
             _window.SetStart(historyIndex);
             return true;
@@ -187,7 +187,7 @@ public sealed class ConversationItemWindowTrimmer
     private IEnumerable<int> AnchorCandidates(int from, int maxItems)
     {
         int userAnchor = FindUserAnchorIndex(from);
-        if (userAnchor > 0 && _items.Count - userAnchor <= maxItems * MidTurnAnchorFactor)
+        if (userAnchor > 0 && _sink.Count - userAnchor <= maxItems * MidTurnAnchorFactor)
         {
             yield return userAnchor;
             yield break;
@@ -211,9 +211,9 @@ public sealed class ConversationItemWindowTrimmer
     /// <returns>锚点条目下标；没有可用锚点时为 -1</returns>
     private int FindUserAnchorIndex(int from)
     {
-        for (int i = Math.Min(from, _items.Count - 1); i > 0; i--)
+        for (int i = Math.Min(from, _sink.Count - 1); i > 0; i--)
         {
-            if (_items[i].SourceMessage is { } source && source.Role == ChatRole.User) return i;
+            if (_sink.Items[i].SourceMessage is { } source && source.Role == ChatRole.User) return i;
         }
 
         return -1;
@@ -230,10 +230,10 @@ public sealed class ConversationItemWindowTrimmer
     /// <returns>锚点条目下标；没有可用锚点时为 -1</returns>
     private int FindMessageStartIndex(int from)
     {
-        for (int i = Math.Min(from, _items.Count - 1); i > 0; i--)
+        for (int i = Math.Min(from, _sink.Count - 1); i > 0; i--)
         {
-            if (_items[i].SourceMessage is not { } source) continue;
-            if (!ReferenceEquals(_items[i - 1].SourceMessage, source)) return i;
+            if (_sink.Items[i].SourceMessage is not { } source) continue;
+            if (!ReferenceEquals(_sink.Items[i - 1].SourceMessage, source)) return i;
         }
 
         return -1;
@@ -251,10 +251,10 @@ public sealed class ConversationItemWindowTrimmer
     /// <returns>收紧后的切点</returns>
     private int LimitByPendingApproval(int from)
     {
-        int limit = Math.Min(from, _items.Count - 1);
+        int limit = Math.Min(from, _sink.Count - 1);
         for (int i = 0; i <= limit; i++)
         {
-            if (_items[i] is ApprovalRequestItem { IsResolved: false }) return i;
+            if (_sink.Items[i] is ApprovalRequestItem { IsResolved: false }) return i;
         }
 
         return from;

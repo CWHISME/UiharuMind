@@ -65,16 +65,19 @@ public interface IConversationItemActionHost
 public sealed class ConversationItemActions
 {
     private readonly ObservableCollection<ConversationItemBase> _items;
+    private readonly ConversationItemSink _sink; //条目集合的唯一写入口（判重按身份）
     private readonly IConversationItemActionHost _host;
     private readonly IMessageService _messageService;
 
     /// <param name="items">界面条目集合(与视图模型共用同一个实例)</param>
     /// <param name="host">要回头请视图模型做的那几件事</param>
     /// <param name="messageService">删除与重试的确认弹窗</param>
+    /// <param name="sink">条目集合的写入口（与 <paramref name="items"/> 是同一份集合）</param>
     public ConversationItemActions(ObservableCollection<ConversationItemBase> items,
-        IConversationItemActionHost host, IMessageService messageService)
+        IConversationItemActionHost host, IMessageService messageService, ConversationItemSink sink)
     {
         _items = items;
+        _sink = sink;
         _host = host;
         _messageService = messageService;
     }
@@ -119,9 +122,15 @@ public sealed class ConversationItemActions
     /// 「已配对」的判据是<b>来源就在历史里</b>，不是「来源非空」：实时画出来的用户气泡
     /// 接的是发送时那个实例，而框架交给持久化的是重建的副本——只看非空会让它永远指着
     /// 一条不在历史里的消息，编辑/删除因此静默失效。
+    /// <para>
+    /// <b>返回值是配对是否收干净了</b>：猜不出归属的临时条目留在界面上，对账若照常补尾就会
+    /// 画出第二条（旧的 dedup 靠内容认领兜住这条路径，新身份体系没有）。返回 false 让对账
+    /// 在轮末走全量重放、轮内先跳过补尾——猜不出来就不再猜，也不许重复。
+    /// </para>
     /// </summary>
     /// <param name="history">当前历史</param>
-    public void WireStreamed(IReadOnlyList<ChatMessage> history)
+    /// <returns>尾部临时条目都已配上来源返回 true；还有没配上的返回 false</returns>
+    public bool WireStreamed(IReadOnlyList<ChatMessage> history)
     {
         HashSet<ChatMessage> persisted = new(history, ReferenceEqualityComparer.Instance);
         int cursor = history.Count - 1;
@@ -134,6 +143,7 @@ public sealed class ConversationItemActions
                 // 落盘的就是发送时那个实例时不会再走 Wire;记忆清单是开跑后才挂上它的(ADR 0076),在这里补显示
                 if (item.IsUser && !ChatMessageAnnotations.IsGroupDelivery(source))
                     ConversationItemFactory.ApplyInjected(item, source);
+                RebindIdentity(item, source); //身份也要定稿，否则尾部扫描会一直当它没画
                 break; //再往前都是配好的
             }
 
@@ -148,6 +158,7 @@ public sealed class ConversationItemActions
                 {
                     Wire(_items[i], history[landed]);
                     CalibrateTimestamp(_items[i], history[landed]);
+                    RebindIdentity(_items[i], history[landed]); //整组一起定稿
                 }
                 i++;
                 cursor = landed - 1;
@@ -171,11 +182,66 @@ public sealed class ConversationItemActions
 
             Wire(item, history[cursor]);
             CalibrateTimestamp(item, history[cursor]);
+            RebindIdentity(item, history[cursor]);
             cursor--;
         }
 
         AttachStreamedSources(history);
         _host.NotifyItemsWired();
+        return AllStreamedItemsSettled(history);
+    }
+
+    /// <summary>
+    /// 还有没有来源没落到这份历史里的文本/思考条目。
+    ///
+    /// <para>
+    /// 不能只看 <c>Identity.IsFormal</c>：用户气泡发送时就有正式身份（消息创建即盖标识），
+    /// 正文对不上时它照样停在一条不在历史里的来源上。判据因此是<b>来源标识在不在历史里</b>，
+    /// 身份只是用来跳过错误卡、占位卡这些不对应消息的条目。
+    /// </para>
+    /// </summary>
+    /// <param name="history">当前历史快照</param>
+    private bool AllStreamedItemsSettled(IReadOnlyList<ChatMessage> history)
+    {
+        HashSet<string> ids = new(history.Select(ChatMessageIdentity.Ensure), StringComparer.Ordinal);
+        foreach (ConversationItemBase item in _items)
+        {
+            if (item.Identity == null) continue;
+            if (item is not TextConversationItem && item is not ThinkingItem) continue;
+            if (item.SourceMessage is not { } source) return false;
+            if (!ids.Contains(ChatMessageIdentity.Ensure(source))) return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 给条目接上来源消息，并把它的临时身份换成正式身份。
+    /// 两件事总是一起做：来源与身份是同一个事实的两个面（它属于哪条消息）
+    /// </summary>
+    /// <param name="item">界面上的条目</param>
+    /// <param name="message">配对到的历史消息</param>
+    private void AttachSource(ConversationItemBase item, ChatMessage message)
+    {
+        item.SourceMessage = message;
+        RebindIdentity(item, message);
+    }
+
+    /// <summary>
+    /// 把条目的临时身份换成正式身份（消息已落盘、标识已知）。
+    ///
+    /// <para>
+    /// 这是「猜」退场的地方：从前配对靠角色与段长猜，猜错两个方向就是两种 bug。
+    /// 现在配对只解决「它属于哪条消息」，而身份里的序号与种类是条目自己的属性，
+    /// 所以配对结果直接就是正式身份，不需要再猜。
+    /// </para>
+    /// </summary>
+    /// <param name="item">界面上的条目</param>
+    /// <param name="message">配对到的历史消息</param>
+    private void RebindIdentity(ConversationItemBase item, ChatMessage message)
+    {
+        if (item.Identity is not { IsFormal: false }) return;
+        _sink.Rebind(item, message);
     }
 
     /// <summary>
@@ -285,12 +351,14 @@ public sealed class ConversationItemActions
                 callOwners.TryGetValue(card.CallId!, out ChatMessage? owner))
             {
                 item.SourceMessage = owner;
+                RebindIdentity(item, owner);
                 continue;
             }
 
             if (item is ThinkingItem) continue; //思考卡走下面的精确配对，不在这里猜
 
-            if (i + 1 < _items.Count) item.SourceMessage = _items[i + 1].SourceMessage;
+            if (i + 1 < _items.Count && _items[i + 1].SourceMessage is { } neighbour)
+                AttachSource(item, neighbour);
         }
 
         PairStreamedThinking(history);
@@ -393,7 +461,7 @@ public sealed class ConversationItemActions
                     slot = candidates.FindIndex(x => x.Index >= assigned && x.Length == length);
                 if (slot < 0) continue;
 
-                thinking.SourceMessage = candidates[slot].Message;
+                AttachSource(thinking, candidates[slot].Message);
                 assigned = candidates[slot].Index;
                 candidates.RemoveAt(slot);
             }
@@ -405,11 +473,11 @@ public sealed class ConversationItemActions
                 if (slot < 0)
                 {
                     if (assigned < 0) break;
-                    thinking.SourceMessage = history[assigned];
+                    AttachSource(thinking, history[assigned]);
                     continue;
                 }
 
-                thinking.SourceMessage = candidates[slot].Message;
+                AttachSource(thinking, candidates[slot].Message);
                 assigned = candidates[slot].Index;
                 candidates.RemoveAt(slot);
             }
@@ -420,7 +488,8 @@ public sealed class ConversationItemActions
         for (int i = _items.Count - 1; i >= 0; i--)
         {
             if (_items[i] is not ThinkingItem thinking || thinking.SourceMessage != null) continue;
-            if (i + 1 < _items.Count) thinking.SourceMessage = _items[i + 1].SourceMessage;
+            if (i + 1 < _items.Count && _items[i + 1].SourceMessage is { } neighbour)
+                AttachSource(thinking, neighbour);
         }
     }
 
@@ -491,7 +560,9 @@ public sealed class ConversationItemActions
         List<int> removedIndices = IndicesOf(history, doomedSet);
         session.History.RemoveAll(doomedSet.Contains);
         session.Save();
-        _items.Discard(targets);
+        // 走 sink 而非集合自带的 Discard：知识卡按内容建身份，不销账的话同内容再次检索出的
+        // 卡会被判重静默挡掉（来源已经删了，界面却再也画不出这张卡）
+        _sink.Discard(targets);
         _host.NoteHistoryRemoved(removedIndices);
     }
 
@@ -569,7 +640,9 @@ public sealed class ConversationItemActions
 
         // 界面侧从<b>该条气泡</b>起删:用户与助手都以自己为锚,不需再前移到提问气泡
         int itemIndex = _items.IndexOf(item);
-        if (itemIndex >= 0) _items.DiscardRange(itemIndex, _items.Count - itemIndex); //截断的这一段不再回来
+        // 必须走 sink：直接 DiscardRange 只摘条目不销身份，重建的用户气泡撞上同一死键会被
+        // sink.Add 静默吞掉——用户重试后连自己的提问都看不见（实机确定路径）
+        if (itemIndex >= 0) _sink.DiscardRange(itemIndex, _items.Count - itemIndex); //截断的这一段不再回来
 
         if (item.SourceMessage.Role == ChatRole.Assistant)
         {
@@ -578,9 +651,11 @@ public sealed class ConversationItemActions
         }
         else
         {
-            // 用户消息:提问由这轮请求写回(与发送同一条路)
-            _items.Add(Wire(ConversationItemFactory.CreateUser(
-                ChatMessageDisplay.TextOf(input), input), input));
+            // 用户消息:提问由这轮请求写回(与发送同一条路)。身份与发送那一格同一口径
+            TextConversationItem bubble = Wire(ConversationItemFactory.CreateUser(
+                ChatMessageDisplay.TextOf(input), input), input);
+            bubble.SetIdentity(ConversationItemIdentity.ForMessage(input, EConversationItemKind.Text));
+            _sink.Add(bubble);
             _host.Rerun(input);
         }
     }

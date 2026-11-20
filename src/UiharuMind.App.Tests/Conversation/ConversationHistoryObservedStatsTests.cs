@@ -29,8 +29,9 @@ public class ConversationHistoryObservedStatsTests
     public void AppendAlongsideStream_AdoptsThinkingArchiveStampedAfterReplay()
     {
         ObservableCollection<ConversationItemBase> items = new();
-        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService());
-        ConversationHistoryRenderer renderer = new(items, actions, () => null, () => false, () => null, () => null);
+        ConversationItemSink sink = new(items);
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
+        ConversationHistoryRenderer renderer = new(sink, actions, () => null, () => false, () => null, () => null);
 
         ChatMessage reply = new(ChatRole.Assistant, [new TextReasoningContent("先想想。")]);
         List<ChatMessage> history = [new(ChatRole.User, "开工"), reply];
@@ -53,8 +54,9 @@ public class ConversationHistoryObservedStatsTests
     public void AppendAlongsideStream_AdoptsToolArchiveStampedAfterReplay()
     {
         ObservableCollection<ConversationItemBase> items = new();
-        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService());
-        ConversationHistoryRenderer renderer = new(items, actions, () => null, () => false, () => null, () => null);
+        ConversationItemSink sink = new(items);
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
+        ConversationHistoryRenderer renderer = new(sink, actions, () => null, () => false, () => null, () => null);
 
         ChatMessage call = new(ChatRole.Assistant, [new FunctionCallContent("c1", "Read")]);
         List<ChatMessage> history = [new(ChatRole.User, "开工"), call];

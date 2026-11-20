@@ -103,7 +103,8 @@ public class GroupDeliveryRendererTests
     public void SplitBubbles_ArePairedAsOneGroupWithThePersistedCopy()
     {
         System.Collections.ObjectModel.ObservableCollection<ConversationItemBase> items = new();
-        UiharuMind.Features.Conversation.ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService());
+        UiharuMind.Features.Conversation.ConversationItemActions actions = new(items, new StubHost(),
+            new RecordingMessageService(), new UiharuMind.Features.Conversation.ConversationItemSink(items));
         ChatMessage live = new(ChatRole.User, "（场景）\n\n[Alice]: 嗯。");
         ChatMessageAnnotations.MarkGroupDelivery(live);
         ChatMessage earlierReply = new(ChatRole.Assistant, "上一轮");

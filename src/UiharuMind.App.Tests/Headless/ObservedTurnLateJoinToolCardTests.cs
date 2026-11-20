@@ -51,8 +51,9 @@ public sealed class ObservedTurnLateJoinToolCardTests
 
         // 此刻打开窗口：与 ConversationViewModel 装载同序——先回放历史（有轮在跑，liveTail），再挂观察
         ObservableCollection<ConversationItemBase> items = new();
-        ConversationHistoryRenderer renderer = new(items,
-            new ConversationItemActions(items, new StubHost(), new RecordingMessageService()),
+        ConversationItemSink sink = new(items);
+        ConversationHistoryRenderer renderer = new(sink,
+            new ConversationItemActions(items, new StubHost(), new RecordingMessageService(), sink),
             () => null, () => false, () => null, () => null);
         renderer.Append(history, 0, history.Count, liveTail: true);
         ConversationTranscript transcript = new(items, () => ConversationItemFactory.CreateAssistant(null));

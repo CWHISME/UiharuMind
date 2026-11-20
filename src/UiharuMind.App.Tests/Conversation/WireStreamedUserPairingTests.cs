@@ -26,7 +26,7 @@ public class WireStreamedUserPairingTests
     private static (ConversationItemActions Actions, ObservableCollection<ConversationItemBase> Items) Create()
     {
         ObservableCollection<ConversationItemBase> items = new();
-        return (new ConversationItemActions(items, new StubHost(null), new RecordingMessageService()), items);
+        return (new ConversationItemActions(items, new StubHost(null), new RecordingMessageService(), new ConversationItemSink(items)), items);
     }
 
     private static TextConversationItem UserBubble(string text) => new(true) { Message = text };
@@ -42,6 +42,24 @@ public class WireStreamedUserPairingTests
         actions.WireStreamed([new ChatMessage(ChatRole.User, "请查看当前工作目录")]);
 
         Assert.Null(interjection.SourceMessage);
+    }
+
+    /// <summary>
+    /// 正文核对失败时不猜、不接来源，并明确回报「没配干净」——对账据此轮末全量重放，
+    /// 不会把同一条消息再画一遍（旧 dedup 的内容认领被身份体系取代后靠这个信号兜底）
+    /// </summary>
+    [Fact]
+    public void FailedPairing_IsReportedAsUnsettled()
+    {
+        var (actions, items) = Create();
+        TextConversationItem bubble = UserBubble("对不上的正文");
+        bubble.SourceMessage = new ChatMessage(ChatRole.User, "发送时那个实例");
+        items.Add(bubble);
+
+        bool settled = actions.WireStreamed([new ChatMessage(ChatRole.User, "真正落盘的提问")]);
+
+        Assert.False(settled);
+        Assert.NotEqual("真正落盘的提问", bubble.SourceMessage!.Text);
     }
 
     [Fact]

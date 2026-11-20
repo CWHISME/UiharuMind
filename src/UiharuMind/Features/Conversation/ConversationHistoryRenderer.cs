@@ -34,7 +34,7 @@ namespace UiharuMind.Features.Conversation;
 /// </summary>
 public sealed class ConversationHistoryRenderer
 {
-    private readonly ObservableCollection<ConversationItemBase> _items;
+    private readonly ConversationItemSink _sink;
     private readonly ConversationItemActions _itemActions; //给气泡接上来源（编辑/删除/分叉/重试）
     private readonly Func<CharacterData?> _characterSource; //会话角色：助手气泡的名字与头像
     private readonly Func<bool> _autoCollapseThinkingSource;
@@ -44,17 +44,17 @@ public sealed class ConversationHistoryRenderer
     /// <summary>
     /// 构造
     /// </summary>
-    /// <param name="items">会话条目集合（界面绑的那一份）</param>
+    /// <param name="sink">条目集合的唯一写入口（判重按身份，不按引用或文本）</param>
     /// <param name="itemActions">气泡上的消息级操作</param>
     /// <param name="characterSource">当前会话的角色</param>
     /// <param name="autoCollapseThinkingSource">思考段收尾时是否自动折叠</param>
     /// <param name="deliverySource">群投递渲染器</param>
-    public ConversationHistoryRenderer(ObservableCollection<ConversationItemBase> items,
+    public ConversationHistoryRenderer(ConversationItemSink sink,
         ConversationItemActions itemActions, Func<CharacterData?> characterSource,
         Func<bool> autoCollapseThinkingSource, Func<GroupDeliveryRenderer?> deliverySource,
         Func<AgentPathResolver?> pathsSource)
     {
-        _items = items;
+        _sink = sink;
         _itemActions = itemActions;
         _characterSource = characterSource;
         _autoCollapseThinkingSource = autoCollapseThinkingSource;
@@ -106,10 +106,7 @@ public sealed class ConversationHistoryRenderer
     /// <param name="liveTail">这一段是不是还在长的尾巴，见 <see cref="Build"/></param>
     public void Append(IReadOnlyList<ChatMessage> messages, int from, int to, bool liveTail)
     {
-        foreach (ConversationItemBase item in Build(messages, from, to, liveTail))
-        {
-            _items.Add(item);
-        }
+        _sink.AddRange(Build(messages, from, to, liveTail));
     }
 
     /// <summary>
@@ -122,7 +119,7 @@ public sealed class ConversationHistoryRenderer
         List<ConversationItemBase> buffer = Build(history, range.From, range.To);
         for (int i = 0; i < buffer.Count; i++)
         {
-            _items.Insert(i, buffer[i]);
+            _sink.Insert(i, buffer[i]);
         }
     }
 
@@ -154,9 +151,9 @@ public sealed class ConversationHistoryRenderer
     {
         // 旧那条产出的条目可能不止一个(工具卡、思考卡…),按来源整组认出来
         List<int> slots = new();
-        for (int i = 0; i < _items.Count; i++)
+        for (int i = 0; i < _sink.Count; i++)
         {
-            if (ReferenceEquals(_items[i].SourceMessage, replaced)) slots.Add(i);
+            if (ReferenceEquals(_sink.Items[i].SourceMessage, replaced)) slots.Add(i);
         }
 
         // 那一条落在历史开窗之外(没渲染过),此刻也不该凭空补出来
@@ -167,7 +164,7 @@ public sealed class ConversationHistoryRenderer
         // 后续报告就是一条文本:能原地改就别动集合。摘掉再插回去会重建那一处的
         // markdown 渲染器(它按条目、进视口才启用),内容一字没变也要闪一下
         if (slots.Count == 1 && rebuilt is [TextConversationItem fresh] &&
-            _items[slots[0]] is TextConversationItem existing)
+            _sink.Items[slots[0]] is TextConversationItem existing)
         {
             fresh.Flush();
             existing.Message = fresh.Message;
@@ -178,12 +175,12 @@ public sealed class ConversationHistoryRenderer
 
         for (int i = slots.Count - 1; i >= 0; i--)
         {
-            _items.RemoveAt(slots[i]);
+            _sink.RemoveAt(slots[i]);
         }
 
         for (int i = 0; i < rebuilt.Count; i++)
         {
-            _items.Insert(slots[0] + i, rebuilt[i]);
+            _sink.Insert(slots[0] + i, rebuilt[i]);
         }
     }
 
@@ -223,11 +220,10 @@ public sealed class ConversationHistoryRenderer
         CharacterData? sessionCharacter = _characterSource();
         CharacterData? speaker = sessionCharacter; //群流水里每条消息换一次发言人,工厂闭包取的是它
         ConversationTranscript replay = new(buffer, () => ConversationItemFactory.CreateAssistant(speaker),
-            pathsSource: _pathsSource, renderedBefore: liveTail ? (IReadOnlyList<ConversationItemBase>)_items : null)
+            pathsSource: _pathsSource, renderedBefore: liveTail ? (IReadOnlyList<ConversationItemBase>)_sink.Items : null)
         {
             AutoCollapseThinking = _autoCollapseThinkingSource(),
         };
-
         // 回放时最近见过的时间戳。助手气泡的工厂给不出时间(它只造壳,拿不到源消息),
         // 默认填的是"现在"——重开会话时整段历史因此显示当前时刻。
         // 旧存档里框架产出的消息本就没有时间戳,那种回落到同一轮的用户消息,
@@ -247,7 +243,8 @@ public sealed class ConversationHistoryRenderer
             {
                 // 交接文档要落盘也要渲染,但渲染成独立卡片而不是助手气泡
                 case EHistoryItemKind.HandoffNote:
-                    buffer.Add(new HandoffItem
+                {
+                    HandoffItem handoff = new()
                     {
                         Message = HistoryHandoff.NoteBody(ChatMessageDisplay.TextOf(message)),
                         // 整理耗时与工具卡同一路呈现:落盘往返后读附加键,旧存档没有这个数就不显示
@@ -257,8 +254,11 @@ public sealed class ConversationHistoryRenderer
                         // 清空记忆提示(/clear)与交接文档同一卡片形态,标题按注解值区分
                         IsClear = HistoryHandoff.IsClear(message),
                         SourceMessage = message,
-                    });
+                    };
+                    handoff.SetIdentity(ConversationItemIdentity.ForMessage(message, EConversationItemKind.Handoff));
+                    buffer.Add(handoff);
                     continue;
+                }
 
                 // 开场白是 assistant 消息(要供给模型,否则首轮又自我介绍一遍),但画成居中旁白
                 case EHistoryItemKind.Narration:
@@ -267,6 +267,7 @@ public sealed class ConversationHistoryRenderer
                         ConversationItemFactory.CreateNarration(message), message);
                     if (lastKnown is { } narrationStamp)
                         narration.Timestamp = ConversationItemFactory.TimestampText(narrationStamp);
+                    narration.SetIdentity(ConversationItemIdentity.ForMessage(message, EConversationItemKind.Narration));
                     buffer.Add(narration);
                     continue;
                 }
@@ -277,6 +278,9 @@ public sealed class ConversationHistoryRenderer
                 {
                     ToolCallItem knowledgeCard = ConversationItemFactory.CreateKnowledgeCard(message.Text);
                     knowledgeCard.SourceMessage = message;
+                    // 与实时那张同一口径：按内容建身份，两侧键相等就只留一张
+                    knowledgeCard.SetIdentity(
+                        ConversationItemIdentity.ForContent(message.Text, EConversationItemKind.Knowledge));
                     buffer.Add(knowledgeCard);
                     continue;
                 }
@@ -292,6 +296,7 @@ public sealed class ConversationHistoryRenderer
                         ConversationItemFactory.CreateNarration(message), message);
                     if (lastKnown is { } reportStamp)
                         reportItem.Timestamp = ConversationItemFactory.TimestampText(reportStamp);
+                    reportItem.SetIdentity(ConversationItemIdentity.ForMessage(message, EConversationItemKind.Narration));
                     buffer.Add(reportItem);
                     continue;
                 }
@@ -302,16 +307,22 @@ public sealed class ConversationHistoryRenderer
                     TextConversationItem receiptItem = ConversationItemFactory.CreateNarration(message);
                     if (GroupAwayReceipt.Of(message) is { } receipt)
                         receiptItem.Message = GroupAwayReceiptText.Format(receipt);
+                    receiptItem.SetIdentity(ConversationItemIdentity.ForMessage(message, EConversationItemKind.Narration));
                     buffer.Add(_itemActions.Wire(receiptItem, message));
                     continue;
                 }
 
                 case EHistoryItemKind.UserInput:
                 {
-                    foreach (TextConversationItem userItem in CreateUserItems(message))
+                    // 群投递一条拆成几只气泡，按序号区分（与流式侧同一口径）
+                    IReadOnlyList<TextConversationItem> userItems = CreateUserItems(message);
+                    for (int i = 0; i < userItems.Count; i++)
                     {
+                        TextConversationItem userItem = userItems[i];
                         if (lastKnown is { } userStamp)
                             userItem.Timestamp = ConversationItemFactory.TimestampText(userStamp);
+                        userItem.SetIdentity(
+                            ConversationItemIdentity.ForMessage(message, EConversationItemKind.Text, i));
                         buffer.Add(userItem);
                     }
 
@@ -329,6 +340,8 @@ public sealed class ConversationHistoryRenderer
             }
 
             int before = buffer.Count;
+            // 回放侧的消息边界：每条消息开一个新作用域，序号才不会跨消息累加
+            replay.BeginMessageScope();
             // 加密思考：正文压根不存在，历史里也就没有对应内容，卡只能在这里补。
             // 插在本条消息的条目之前——思考发生在正文之前。
             // 证据要两样齐全：标记 + 密文。只有标记的老消息是旧判据（usage 计数）留下的，
@@ -346,10 +359,13 @@ public sealed class ConversationHistoryRenderer
 
             // 本条消息产出的<b>每一个</b>条目都记下来源:删除是按「来源落在删除集合里」
             // 摘条目的,漏记的条目会在来源消失后成为删不掉的残留(思考卡、工具卡都没有
-            // 自己的删除按钮)。消息级操作只挂在文本气泡上——只有它有那一行按钮
+            // 自己的删除按钮)。消息级操作只挂在文本气泡上——只有它有那一行按钮。
+            // 身份同时从临时换成正式：回放时消息就在手上，不需要等配对
             for (int i = before; i < buffer.Count; i++)
             {
                 buffer[i].SourceMessage = message;
+                if (buffer[i].Identity is { } identity)
+                    buffer[i].SetIdentity(identity.Rebind(message));
                 if (buffer[i] is not TextConversationItem textItem) continue;
 
                 _itemActions.Wire(textItem, message);
@@ -434,19 +450,16 @@ public sealed class ConversationHistoryRenderer
         // 驱动方在每次服务调用落盘后就把那一段的统计盖进内存历史（见 TurnDriver），
         // 这里把上一批冻成纯字数/空白的卡升级成存档值——只读不写，幂等。
         // 正在流的那几张来源还没配好，认领时自动跳过，继续跑它的 provisional。
-        ThinkingItem.AdoptPersistedStats(_items);
-        ToolCallItem.AdoptPersistedDurations(_items);
+        ThinkingItem.AdoptPersistedStats(_sink.Items);
+        ToolCallItem.AdoptPersistedDurations(_sink.Items);
     }
 
     /// <summary>
-    /// 界面上已经有对应条目就不再加：按来源消息引用认人，工具卡按 <c>CallId</c> 认，
-    /// 来源还没配对上的流式条目按同类同正文认领。判据与对账补尾共用一份，见
-    /// <see cref="ConversationItemDedup"/>——从前只这一条路判重，对账补尾无条件追加，
-    /// 于是同一句话在界面上出现两次（19:35 流式、19:36 回放）。
+    /// 界面上已经有对应条目就不再加。判据是<b>条目的稳定身份</b>（见 <see cref="ConversationItemSink"/>）：
+    /// 同一条消息的同一个内容块只允许一个条目，不再按引用或正文猜
     /// </summary>
     /// <param name="items">这一批待补的条目</param>
-    private void AppendSkippingRendered(List<ConversationItemBase> items) =>
-        ConversationItemDedup.Append(_items, items);
+    private void AppendSkippingRendered(List<ConversationItemBase> items) => _sink.AddRange(items);
 
-    private bool IsRendered(ChatMessage? source) => _items.Any(x => ReferenceEquals(x.SourceMessage, source));
+    private bool IsRendered(ChatMessage? source) => source != null && _sink.IsMessageRendered(source);
 }

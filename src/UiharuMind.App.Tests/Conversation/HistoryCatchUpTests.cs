@@ -20,7 +20,8 @@ public class HistoryCatchUpTests
     [Fact]
     public void ExternalTurn_StreamDrewNothing_HistoryStillDraws()
     {
-        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
         List<ChatMessage> history = [ToolReply("先读一眼。"), new(ChatRole.Assistant, "看完了。")];
 
         renderer.AppendPersisted(history, 0, ownTurn: false, streaming: true);
@@ -39,7 +40,8 @@ public class HistoryCatchUpTests
     [Fact]
     public void WholeSlice_OneMessageWithSeveralItems_KeepsThemAll()
     {
-        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
         List<ChatMessage> history = [ToolReply("先读一眼。")];
 
         renderer.AppendPersisted(history, 0, ownTurn: false, streaming: false);
@@ -53,7 +55,8 @@ public class HistoryCatchUpTests
     [Fact]
     public void ExternalTurn_StreamAlreadyDrew_NoSecondCopy()
     {
-        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
         ChatMessage reply = ToolReply("先读一眼。");
         List<ChatMessage> history = [reply, new(ChatRole.Assistant, "看完了。")];
 
@@ -74,7 +77,8 @@ public class HistoryCatchUpTests
     [Fact]
     public void PartialStream_OneToolCardMissing_IsDrawnFromHistory()
     {
-        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
         ChatMessage reply = new(ChatRole.Assistant,
         [
             new TextContent("跑两条。"),
@@ -99,7 +103,8 @@ public class HistoryCatchUpTests
     [Fact]
     public void StreamBubbleWithoutSource_IsPairedBeforeDedup()
     {
-        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
         ChatMessage reply = new(ChatRole.Assistant, "看完了。");
         List<ChatMessage> history = [reply];
 
@@ -125,8 +130,9 @@ public class HistoryCatchUpTests
     public void CatchUpTail_AppendsEvenWhileTheTurnIsStillRunning()
     {
         ObservableCollection<ConversationItemBase> items = new();
-        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService());
-        ConversationHistoryRenderer renderer = new(items, actions, () => null, () => false, () => null, () => null);
+        ConversationItemSink sink = new(items);
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
+        ConversationHistoryRenderer renderer = new(sink, actions, () => null, () => false, () => null, () => null);
 
         ChatSession session = new() { SessionId = "catch-up" };
         session.History.Add(new ChatMessage(ChatRole.Assistant, "第一段"));
@@ -137,7 +143,7 @@ public class HistoryCatchUpTests
         items.Add(renderer.Build(session.History, 0, 1, liveTail: true)[0]);
 
         ReconcileHost host = new(session, renderer) { IsSessionIdle = false };
-        ConversationHistoryReconciler reconciler = new(items, new HistoryWindow(), host);
+        ConversationHistoryReconciler reconciler = new(sink, new HistoryWindow(), host);
 
         reconciler.CatchUpTail("test");
 
@@ -155,7 +161,9 @@ public class HistoryCatchUpTests
     [Fact]
     public void CatchUpTail_StreamDrewButNotPaired_NoSecondCopy()
     {
-        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
         ChatSession session = new() { SessionId = "dup" };
         ChatMessage reply = new(ChatRole.Assistant,
         [
@@ -164,18 +172,84 @@ public class HistoryCatchUpTests
         ]);
         session.History.Add(reply);
 
-        // 流画出来的样子：思考卡与正文都还没认回来源
-        items.Add(new ThinkingItem { Message = "想一下。" });
-        items.Add(new TextConversationItem(false, false) { Message = "2D 58558 字节确认。" });
+        // 流画出来的样子：思考卡与正文都还没认回来源，但身份已经是临时键（与转录器同一口径）
+        string segmentKey = ChatMessageIdentity.NewId();
+        ThinkingItem thinking = new() { Message = "想一下。" };
+        thinking.SetIdentity(ConversationItemIdentity.Temporary(segmentKey, EConversationItemKind.Thinking));
+        sink.Add(thinking);
+        TextConversationItem bubble = new(false, false) { Message = "2D 58558 字节确认。" };
+        bubble.SetIdentity(ConversationItemIdentity.Temporary(segmentKey, EConversationItemKind.Text));
+        sink.Add(bubble);
 
-        ReconcileHost host = new(session, renderer) { IsSessionIdle = false };
-        ConversationHistoryReconciler reconciler = new(items, new HistoryWindow(), host);
+        ReconcileHost host = new(session, renderer, actions) { IsSessionIdle = false };
+        ConversationHistoryReconciler reconciler = new(sink, new HistoryWindow(), host);
 
         reconciler.CatchUpTail("stream not paired");
 
         Assert.Equal(2, items.Count);
         Assert.Single(items.OfType<ThinkingItem>());
         Assert.Single(items.OfType<TextConversationItem>());
+    }
+
+    /// <summary>
+    /// 配对失败（用户气泡正文与落盘那条对不上）是已知行为：temp 条目留在界面上、不配对，
+    /// 但轮内补尾不许照着「没画过」再添一条。等轮末全量重放才是它的归处。
+    /// </summary>
+    [Fact]
+    public void CatchUpTail_PairingFailed_DoesNotDrawASecondCopy()
+    {
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
+        ChatSession session = new() { SessionId = "pairing-failed" };
+        ChatMessage landed = new(ChatRole.User, "真正落盘的提问");
+        session.History.Add(landed);
+
+        // 生产形状：用户气泡发送时就盖了标识、有正式身份，只是落盘那份正文对不上
+        ChatMessage sent = new(ChatRole.User, "对不上的正文");
+        TextConversationItem bubble = new(true, false) { Message = "对不上的正文", SourceMessage = sent };
+        Assert.True(bubble.Identity!.Value.IsFormal);
+        sink.Add(bubble);
+
+        ReconcileHost host = new(session, renderer, actions) { IsSessionIdle = false };
+        ConversationHistoryReconciler reconciler = new(sink, new HistoryWindow(), host);
+
+        reconciler.CatchUpTail("pairing failed");
+
+        Assert.Single(items);
+        Assert.Same(bubble, items[0]);
+        Assert.Same(sent, bubble.SourceMessage); //不猜、不接错来源
+        Assert.False(host.BuiltLiveTail);
+    }
+
+    /// <summary>
+    /// 轮末（没人跑）遇到配对失败：整窗重放，temp 条目和它的身份一起销掉，
+    /// 按历史重画一条正式的——既不重复，也不会因为尾部 break 把这条吞掉。
+    /// </summary>
+    [Fact]
+    public void Reconcile_PairingFailed_ReplaysTheWindowWithOneFormalCopy()
+    {
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
+        ChatSession session = new() { SessionId = "pairing-failed-idle" };
+        ChatMessage landed = new(ChatRole.User, "真正落盘的提问");
+        session.History.Add(landed);
+
+        // 同上：正式身份但来源不在历史里，配对正文核对失败
+        ChatMessage sent = new(ChatRole.User, "对不上的正文");
+        TextConversationItem bubble = new(true, false) { Message = "对不上的正文", SourceMessage = sent };
+        sink.Add(bubble);
+
+        ReconcileHost host = new(session, renderer, actions) { IsSessionIdle = true };
+        ConversationHistoryReconciler reconciler = new(sink, new HistoryWindow(), host);
+
+        reconciler.Reconcile("pairing failed at idle");
+
+        TextConversationItem rebuilt = Assert.Single(items.OfType<TextConversationItem>());
+        Assert.NotSame(bubble, rebuilt);
+        Assert.Same(landed, rebuilt.SourceMessage);
+        Assert.True(rebuilt.Identity!.Value.IsFormal);
     }
 
     /// <summary>
@@ -186,14 +260,15 @@ public class HistoryCatchUpTests
     [Fact]
     public void Reconcile_HistoryReallyEmpty_ClearsTheWindow()
     {
-        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer) = Fixture();
+        (ObservableCollection<ConversationItemBase> items, ConversationHistoryRenderer renderer,
+            ConversationItemSink sink) = Fixture();
         List<ChatMessage> history = [new(ChatRole.User, "一句话"), new(ChatRole.Assistant, "答一句")];
         renderer.Append(history, 0, 2, liveTail: false);
         Assert.NotEmpty(items);
 
         HistoryWindow window = new();
         ReconcileHost host = new(new ChatSession(), renderer) { IsSessionIdle = true };
-        ConversationHistoryReconciler reconciler = new(items, window, host);
+        ConversationHistoryReconciler reconciler = new(sink, window, host);
 
         reconciler.Reconcile("history really empty");
 
@@ -210,16 +285,19 @@ public class HistoryCatchUpTests
             new FunctionCallContent("c1", "Read"),
         ]);
 
-    private static (ObservableCollection<ConversationItemBase> Items, ConversationHistoryRenderer Renderer) Fixture()
+    private static (ObservableCollection<ConversationItemBase> Items, ConversationHistoryRenderer Renderer,
+        ConversationItemSink Sink) Fixture()
     {
         ObservableCollection<ConversationItemBase> items = new();
-        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService());
-        ConversationHistoryRenderer renderer = new(items, actions, () => null, () => false, () => null, () => null);
-        return (items, renderer);
+        ConversationItemSink sink = new(items);
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
+        ConversationHistoryRenderer renderer = new(sink, actions, () => null, () => false, () => null, () => null);
+        return (items, renderer, sink);
     }
 
     /// <summary>对账的宿主机位替身：只给对账要用的那几个窄依赖</summary>
-    private sealed class ReconcileHost(ChatSession session, ConversationHistoryRenderer renderer)
+    private sealed class ReconcileHost(ChatSession session, ConversationHistoryRenderer renderer,
+        ConversationItemActions? actions = null)
         : IConversationReconcileHost
     {
         public bool IsSessionIdle { get; init; }
@@ -242,9 +320,11 @@ public class HistoryCatchUpTests
             return renderer.Build(history, from, to, liveTail: true);
         }
 
-        public void SettleStreamedItems(IReadOnlyList<ChatMessage> history)
-        {
-        }
+        public bool SettleStreamedItems(IReadOnlyList<ChatMessage> history) =>
+            actions?.WireStreamed(history) ?? SettleResult;
+
+        /// <summary>没有 actions 的用例可以显式指定配对结果（默认算配好了）</summary>
+        public bool SettleResult { get; init; } = true;
 
         public void RefreshTokenUsage()
         {

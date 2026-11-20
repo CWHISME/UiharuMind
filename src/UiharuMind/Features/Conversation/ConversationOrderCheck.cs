@@ -14,66 +14,45 @@ using UiharuMind.Features.Conversation.Items;
 namespace UiharuMind.Features.Conversation;
 
 /// <summary>
-/// 界面条目与历史的<b>对账</b>：它们的先后顺序还对得上吗。
+/// 界面条目与历史的<b>对账</b>：它们的先后顺序还对得上吗、尾部有没有漏画。
 ///
-/// 存在的理由：一轮跑着的时候，条目来自两处——实时内容流（助手正文、思考段、工具卡、
-/// 被消费的用户消息）与历史落盘（检索卡、后续报告…）。边界与用户消息如今由执行者在流里
-/// 明说，不再靠界面推演；但两股来源仍然存在，所以留一道事后校验：<b>错了要能自己发现</b>，
-/// 由调用方重放那一窗纠正，并在日志里留痕（不然下次还是靠用户截图才知道）。
-///
-/// 判据有两条：
-/// 1. <b>已配对的条目，其来源消息在历史里的下标必须单调不减</b>（<see cref="FindDivergence"/>）。
-/// 2. <b>历史尾部没有漏画</b>（<see cref="FindMissingTail"/>）。
-///
-/// 漏画只查尾部：「加载更早」负责窗口之外更早的那段，只有最后一条已画消息之后还有历史
-/// 才算漏。调用方必须保证<b>没人跑</b>——流式中的气泡来源是空，跑着的时候查必误判。
+/// <para>
+/// 判据只有一条：<b>条目的稳定身份</b>（见 <see cref="ConversationItemIdentity"/>）。
+/// 从前这里问的是「来源消息的对象引用在历史里的下标」，而引用会被冷卸载换掉、
+/// 空来源的流式条目压根不参与判定——于是对账只能靠「最大下标做减法」猜漏了几条，
+/// 尾部成对时 <c>missing</c> 恒不收敛（真实日志里 5 小时 298 次对账，其中 1576 次是
+/// 稳定的「2 trailing message(s) not drawn」）。
+/// </para>
+/// <para>
+/// 现在改成<b>逐条问「这条消息画出来了没有」</b>：漏画就是漏画，画过就是画过，
+/// 不再有「缺几条」这个中间量，也就不存在减法算错。
+/// </para>
 /// </summary>
 public static class ConversationOrderCheck
 {
-    /// <summary>消息按<b>引用</b>认人：正文相同的两条消息是两条,不能合并</summary>
-    private sealed class MessageIdentity : IEqualityComparer<ChatMessage>
-    {
-        public static readonly MessageIdentity Instance = new();
-
-        public bool Equals(ChatMessage? x, ChatMessage? y) => ReferenceEquals(x, y);
-
-        public int GetHashCode(ChatMessage obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
-    }
-
-    /// <summary>建「消息 → 历史下标」映射。同一条消息重复出现在历史里是另一个 bug，这里只取最后一次</summary>
-    private static Dictionary<ChatMessage, int> BuildOrderMap(IReadOnlyList<ChatMessage> history)
-    {
-        Dictionary<ChatMessage, int> order = new(history.Count, MessageIdentity.Instance);
-        for (int i = 0; i < history.Count; i++)
-        {
-            order[history[i]] = i;
-        }
-
-        return order;
-    }
-
-/// <summary>
-/// 找出界面与历史的顺序分歧
-///
-/// 来源已不在历史里的条目也算分歧：它要么是跑着的时候被原地替换掉的旧报告
-/// （替换信号在有轮在跑时不处理，轮结束了就靠这道检查发现），
-/// 要么是历史被压缩或删除变短了——两种都该按当前历史重放，而不是接着往后追加。
-/// 尚未配对的气泡（来源是空）不参与判定，否则每轮直播都要误判一次。
-/// </summary>
+    /// <summary>
+    /// 找出界面与历史的顺序分歧。
+    ///
+    /// <para>
+    /// 来源已不在历史里的条目也算分歧：它要么是跑着的时候被原地替换掉的旧报告
+    /// （替换信号在有轮在跑时不处理，轮结束了就靠这道检查发现），
+    /// 要么是历史被压缩或删除变短了——两种都该按当前历史重放，而不是接着往后追加。
+    /// </para>
+    /// </summary>
     /// <param name="items">界面条目（按显示顺序）</param>
     /// <param name="history">当前历史</param>
     /// <returns>分歧说明（可直接进日志）；一致则为 null</returns>
     public static string? FindDivergence(IReadOnlyList<ConversationItemBase> items,
         IReadOnlyList<ChatMessage> history)
     {
-        Dictionary<ChatMessage, int> order = BuildOrderMap(history);
+        Dictionary<string, int> order = BuildOrderMap(history);
 
         int previous = -1;
         for (int i = 0; i < items.Count; i++)
         {
-            if (items[i].SourceMessage is not { } source) continue;
+            if (items[i].Identity is not { IsFormal: true } identity) continue;
             // 找不到的是跑着时被替换掉的旧来源，或压缩/删除之后的历史——都是分歧，不再跳过
-            if (!order.TryGetValue(source, out int index))
+            if (!order.TryGetValue(identity.MessageId!, out int index))
             {
                 return $"item #{i} source no longer in history (replaced or removed)";
             }
@@ -90,43 +69,68 @@ public static class ConversationOrderCheck
     }
 
     /// <summary>
-    /// 找出历史尾部没画出来的条数（有追加落盘、界面一条没加）。
+    /// 找出历史尾部<b>第一条没画出来的消息</b>的下标；全都画过返回 -1。
     ///
+    /// <para>
     /// 只查尾部：窗口之外的旧消息本来就不画（「加载更早」负责它们），
-    /// 只有“最后一条已画消息之后还有历史”才是漏画（实机见过：交回报告与唤醒回复都落盘了，
-    /// 界面却停在派活那条，切会话才出来）。尾部只回写工具卡、不产条目的工具结果消息不计入。
-    ///
-    /// 调用方必须保证没人跑——流式中的气泡来源是空，跑着的时候查这个必误判。
+    /// 只有「最后一条已画消息之后还有历史」才算漏画（实机见过：交回报告与唤醒回复都落盘了，
+    /// 界面却停在派活那条，切会话才出来）。
+    /// </para>
+    /// <para>
+    /// 由设计就不产条目的消息（工具结果只回写已有工具卡）跳过——它们永远不会有自己的条目，
+    /// 把它们算成漏画就是每个消息边界白跑一次补画。
+    /// </para>
     /// </summary>
     /// <param name="items">界面条目（按显示顺序）</param>
     /// <param name="history">当前历史</param>
-    /// <returns>尾部漏画的消息数；0 为对得上</returns>
-    public static int FindMissingTail(IReadOnlyList<ConversationItemBase> items,
+    /// <returns>补画起始下标；没有漏画为 -1</returns>
+    public static int FindMissingTailStart(IReadOnlyList<ConversationItemBase> items,
         IReadOnlyList<ChatMessage> history)
     {
-        Dictionary<ChatMessage, int> order = BuildOrderMap(history);
+        HashSet<string> rendered = BuildRenderedSet(items);
 
-        int lastDrawn = -1;
-        foreach (ConversationItemBase item in items)
+        // 从尾部往前扫，遇到已画过的就停：再往前是窗口之外的旧消息（「加载更早」负责它们），
+        // 把它们算成漏画会让每次对账都从会话开头重画一遍
+        int start = -1;
+        for (int i = history.Count - 1; i >= 0; i--)
         {
-            if (item.SourceMessage is not { } source) continue;
-            if (order.TryGetValue(source, out int index) && index > lastDrawn) lastDrawn = index;
+            if (rendered.Contains(Core.AI.Chat.ChatMessageIdentity.Ensure(history[i]))) break;
+            if (ProducesOwnItems(history[i])) start = i;
         }
 
-        // 工具结果消息只回写已有工具卡、不新增条目（ConversationTranscript.ApplyResultToExisting）。
-        // 尾部只剩这类消息时不该触发补画——否则每个消息边界都白跑一次 Build，
-        // 日志里全天 157 次稳定的「2 trailing message(s) not drawn」就是这个形状。
-        // 真有漏画时仍按整段尾部计数：AppendTail 用 from = Count - missing 切片，
-        // 缩小这个数会跳过中间该补的消息
-        int lastPaintable = history.Count - 1;
-        while (lastPaintable >= 0 && !ProducesOwnItems(history[lastPaintable])) lastPaintable--;
-        if (lastPaintable <= lastDrawn) return 0;
-
-        return history.Count - 1 - lastDrawn;
+        return start;
     }
 
-    /// <summary>这条历史消息会不会在界面上产生属于自己的条目</summary>
-    private static bool ProducesOwnItems(ChatMessage message) =>
+    /// <summary>
+    /// 这条历史消息会不会在界面上产生属于自己的条目
+    /// </summary>
+    /// <param name="message">历史消息</param>
+    /// <returns>会产出条目返回 true</returns>
+    public static bool ProducesOwnItems(ChatMessage message) =>
         !(message.Role == ChatRole.Tool &&
           ConversationMessageOrigin.KindOf(message) == EHistoryItemKind.StreamContents);
+
+    /// <summary>建「消息标识 → 历史下标」映射。同一条消息重复出现在历史里是另一个 bug，这里只取最后一次</summary>
+    private static Dictionary<string, int> BuildOrderMap(IReadOnlyList<ChatMessage> history)
+    {
+        Dictionary<string, int> order = new(history.Count, System.StringComparer.Ordinal);
+        for (int i = 0; i < history.Count; i++)
+        {
+            order[Core.AI.Chat.ChatMessageIdentity.Ensure(history[i])] = i;
+        }
+
+        return order;
+    }
+
+    /// <summary>界面上已经画出来的消息标识集合</summary>
+    private static HashSet<string> BuildRenderedSet(IReadOnlyList<ConversationItemBase> items)
+    {
+        HashSet<string> rendered = new(System.StringComparer.Ordinal);
+        foreach (ConversationItemBase item in items)
+        {
+            if (item.Identity is { IsFormal: true } identity) rendered.Add(identity.MessageId!);
+        }
+
+        return rendered;
+    }
 }

@@ -60,8 +60,15 @@ public class ConversationItemWindowTrimmerTests
         /// <summary>此刻裁剪是否不会抽走用户正在读的视口（跟底，或压根不在界面上）</summary>
         public bool CanTrim { get; set; } = true;
 
+        public ConversationItemSink Sink { get; }
+
+        public Fixture()
+        {
+            Sink = new ConversationItemSink(Items);
+        }
+
         public ConversationItemWindowTrimmer NewTrimmer(int maxItems, int backgroundMaxItems = 20) =>
-            new(Items, Window, () => History, () => CanTrim, maxItems, backgroundMaxItems);
+            new(Sink, Window, () => History, () => CanTrim, maxItems, backgroundMaxItems);
 
         /// <param name="count">条目数（偶数下标为用户消息）</param>
         public Fixture WithAlternatingTurns(int count)

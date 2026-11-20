@@ -1000,6 +1000,7 @@ public class ChatSession
     {
         return new ChatMessage(role, contents)
         {
+            MessageId = ChatMessageIdentity.NewId(),
             AuthorName = AuthorNameOf(role),
             CreatedAt = createdAt ?? DateTimeOffset.Now,
         };

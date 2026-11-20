@@ -45,8 +45,9 @@ public sealed class HistoryReplayResultImagesTests : IDisposable
         }
 
         ObservableCollection<ConversationItemBase> items = new();
-        ConversationHistoryRenderer renderer = new(items,
-            new ConversationItemActions(items, new StubHost(), new RecordingMessageService()),
+        ConversationItemSink sink = new(items);
+        ConversationHistoryRenderer renderer = new(sink,
+            new ConversationItemActions(items, new StubHost(), new RecordingMessageService(), sink),
             () => null, () => false, () => null, () => new AgentPathResolver(null, draft));
         List<ChatMessage> history =
         [

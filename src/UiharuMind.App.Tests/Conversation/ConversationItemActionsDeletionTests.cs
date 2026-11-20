@@ -74,7 +74,8 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RemovalRecordingHost host = new(session);
-        ConversationItemActions actions = new(items, host, new RecordingMessageService());
+        ConversationItemActions actions = new(items, host, new RecordingMessageService(),
+            new ConversationItemSink(items));
         ChatMessage user0 = UserMessage("问");
         ChatMessage call = ToolCallMessage("c1");
         ChatMessage result = ToolResultMessage("c1");
@@ -113,7 +114,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("帮我改代码");
         ChatMessage call = ToolCallMessage("c1");
@@ -164,7 +165,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("你好");
         ChatMessage reply0 = AssistantText("你好呀");
@@ -197,7 +198,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         // 一条 assistant 消息自带思考 + 正文
         ChatMessage user0 = UserMessage("帮我改代码");
@@ -246,7 +247,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("帮我改代码");
         ChatMessage assistant = new(ChatRole.Assistant,
@@ -291,7 +292,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new() { ConfirmResult = false };
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("帮我改代码");
         ChatMessage call = ToolCallMessage("c1");
@@ -326,7 +327,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("做事");
         ChatMessage step = new(ChatRole.Assistant,
@@ -370,7 +371,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("做事");
         ChatMessage step = new(ChatRole.Assistant,
@@ -417,7 +418,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("做事");
         ChatMessage mixed = new(ChatRole.Assistant,
@@ -461,7 +462,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("做事");
         ChatMessage reply1 = AssistantText("我来看看");
@@ -508,7 +509,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("做事");
         ChatMessage call1 = ToolCallMessage("c1");
@@ -550,7 +551,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage user0 = UserMessage("做事");
         // 一条消息 = 思考卡 + 正文气泡 + 工具卡三个条目,历史侧却只有它与结果两条
@@ -589,7 +590,7 @@ public class ConversationItemActionsDeletionTests
         ChatSession session = TransientSession();
         ObservableCollection<ConversationItemBase> items = new();
         RecordingMessageService confirms = new();
-        ConversationItemActions actions = new(items, new StubHost(session), confirms);
+        ConversationItemActions actions = new(items, new StubHost(session), confirms, new ConversationItemSink(items));
 
         ChatMessage first = UserMessage("再来一次");
         ChatMessage between = AssistantText("好的");

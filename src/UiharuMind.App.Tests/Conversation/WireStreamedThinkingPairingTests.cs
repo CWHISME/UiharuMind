@@ -26,7 +26,7 @@ public class WireStreamedThinkingPairingTests
     private static (ConversationItemActions Actions, ObservableCollection<ConversationItemBase> Items) Create()
     {
         ObservableCollection<ConversationItemBase> items = new();
-        return (new ConversationItemActions(items, new StubHost(), new RecordingMessageService()), items);
+        return (new ConversationItemActions(items, new StubHost(), new RecordingMessageService(), new ConversationItemSink(items)), items);
     }
 
     /// <summary>
@@ -69,7 +69,7 @@ public class WireStreamedThinkingPairingTests
         Assert.Same(call, toolCard.SourceMessage);
         Assert.Same(reasoningTail, thinking.SourceMessage);
         Assert.Null(ConversationOrderCheck.FindDivergence(items, history));
-        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, history));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, history));
     }
 
     /// <summary>
@@ -105,7 +105,7 @@ public class WireStreamedThinkingPairingTests
         actions.WireStreamed(history);
 
         Assert.Same(recent, thinking.SourceMessage);
-        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, history));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, history));
         Assert.Null(ConversationOrderCheck.FindDivergence(items, history));
     }
 
@@ -174,7 +174,7 @@ public class WireStreamedThinkingPairingTests
         Assert.Same(interleaved, card2.SourceMessage);
         Assert.Same(interleaved, toolCard.SourceMessage);
         Assert.Null(ConversationOrderCheck.FindDivergence(items, history));
-        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, history));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, history));
     }
 
     /// <summary>
@@ -351,7 +351,7 @@ public class WireStreamedThinkingPairingTests
         Assert.NotNull(tail.SourceMessage);
         Assert.True(history.IndexOf(head.SourceMessage!) <= history.IndexOf(tail.SourceMessage!));
         Assert.Null(ConversationOrderCheck.FindDivergence(items, history));
-        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, history));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, history));
     }
 
     /// <summary>
@@ -406,6 +406,6 @@ public class WireStreamedThinkingPairingTests
         actions.WireStreamed(history);
 
         Assert.Null(cancelled.SourceMessage);
-        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, history));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, history));
     }
 }

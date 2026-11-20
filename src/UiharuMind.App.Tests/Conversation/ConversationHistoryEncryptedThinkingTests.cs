@@ -64,7 +64,8 @@ public class ConversationHistoryEncryptedThinkingTests
 
     private static ConversationHistoryRenderer Renderer(ObservableCollection<ConversationItemBase> items)
     {
-        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService());
-        return new ConversationHistoryRenderer(items, actions, () => null, () => false, () => null, () => null);
+        ConversationItemSink sink = new(items);
+        ConversationItemActions actions = new(items, new StubHost(), new RecordingMessageService(), sink);
+        return new ConversationHistoryRenderer(sink, actions, () => null, () => false, () => null, () => null);
     }
 }

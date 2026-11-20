@@ -125,6 +125,7 @@ public static class ToolCallCancellation
             int index = session.History.AddReturningIndex(new ChatMessage(ChatRole.Tool,
                 [new FunctionResultContent(callId, text)])
             {
+                MessageId = ChatMessageIdentity.NewId(),
                 CreatedAt = DateTimeOffset.Now,
             });
             if (before < 0) before = index;

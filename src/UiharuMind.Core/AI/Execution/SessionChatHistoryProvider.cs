@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Linq;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Character;
@@ -201,6 +202,15 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
         foreach (ChatMessage message in messages)
         {
             if (!IsOwnedByUs(message)) continue;
+            // 重发标记的语义是「此前属于这一发的内容全部作废」，整条都作废就不该落盘。
+            // 必须排在下面所有内容改写之前：那些改写只该作用在活下来的内容上
+            if (!TrimRestartedPrefix(message))
+            {
+                Log.Debug($"Dropped a superseded assistant message (session={session.SessionId}): "
+                          + "the stream was restarted before it produced anything that survived.");
+                continue;
+            }
+
             // 空助手消息不落盘：它在框架眼里是「模型答了一句空话」，实际是上游错误帧/空流的残影
             // （见 HistorySupply.IsEmptyAssistant）。落进去就会被逐轮发回，还会在界面上留一个空气泡
             if (HistorySupply.IsEmptyAssistant(message))
@@ -214,6 +224,9 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
             if (at < floor) at = floor;
             message.CreatedAt = at;
             floor = at;
+            // 稳定标识兜底：模型回复由服务端给，自建消息在创建处盖。走到这里还没有的，
+            // 是别处造的漏网消息（或老存档里读回来的）——落盘前补上，否则界面只能按正文猜
+            ChatMessageIdentity.Ensure(message);
             // 加密思考那条信号是给界面看的，框架会把它当普通内容并进消息。
             // 落库前的处置分两种（ADR 0100）：
             // ① 不带票据的纯信号——摘掉，否则它会跟着历史走，白占存储与提示词；
@@ -258,18 +271,40 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
                 }
             }
 
-            // 重发标记是给界面看的（哪一发整段作废），不是消息内容：框架会把它当普通内容并进消息，
-            // 落库前必须摘掉，否则它会跟着历史走、还在下一发请求里占位
-            if (message.Contents.Any(x => x is StreamRestartContent))
-            {
-                message.Contents = message.Contents.Where(x => x is not StreamRestartContent).ToList();
-            }
-
             int index = session.History.AddReturningIndex(message);
             if (start < 0) start = index;
         }
 
         return start;
+    }
+
+    /// <summary>
+    /// 摘掉重发标记，连同它<b>前面</b>那一段——标记的语义正是「此前属于这一发的内容全部作废」。
+    ///
+    /// <para>
+    /// 标记不带 <c>MessageId</c>，而框架按 id 聚合增量：它会把标记并进<b>被作废的那一发</b>的消息里
+    /// （实测：断流重发之后历史里多出一条只带思考的助手消息，重开会话就多一张思考卡，
+    /// 真实档案里 18 个会话共 57 处）。只摘标记、留下那条消息，等于把作废的内容永久写进历史。
+    /// </para>
+    /// <para>
+    /// 标记落在消息<b>开头</b>时（第一发一个字都没产出，标记并进了重发那条）前面没有可作废的内容，
+    /// 只摘标记本身。多个标记取最后一个：它作废的范围最大。
+    /// </para>
+    /// </summary>
+    /// <param name="message">待清理的消息（就地修改）</param>
+    /// <returns>清理后还剩内容返回 true；整条都作废返回 false</returns>
+    private static bool TrimRestartedPrefix(ChatMessage message)
+    {
+        int marker = -1;
+        for (int i = 0; i < message.Contents.Count; i++)
+        {
+            if (message.Contents[i] is StreamRestartContent) marker = i;
+        }
+
+        if (marker < 0) return true;
+
+        message.Contents = message.Contents.Skip(marker + 1).ToList();
+        return message.Contents.Count > 0;
     }
 
     /// <summary>两批追加里靠前的那个起点；-1 表示那一批一条都没落</summary>
@@ -321,6 +356,7 @@ internal sealed class SessionChatHistoryProvider : ChatHistoryProvider
     {
         ChatMessage message = new(ChatRole.Tool, snippets)
         {
+            MessageId = ChatMessageIdentity.NewId(),
             CreatedAt = storedAt,
             AdditionalProperties = new AdditionalPropertiesDictionary
             {

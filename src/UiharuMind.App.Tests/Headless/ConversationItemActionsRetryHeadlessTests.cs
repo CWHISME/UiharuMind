@@ -47,7 +47,8 @@ public class ConversationItemActionsRetryHeadlessTests
             ChatSession session = TransientSession();
             ObservableCollection<ConversationItemBase> items = new();
             RecordingHost host = new(session);
-            ConversationItemActions actions = new(items, host, new RecordingMessageService());
+            ConversationItemActions actions = new(items, host, new RecordingMessageService(),
+                new ConversationItemSink(items));
 
             ChatMessage user0 = new(ChatRole.User, "问题1");
             ChatMessage reply0 = new(ChatRole.Assistant, "回答1");
@@ -92,7 +93,8 @@ public class ConversationItemActionsRetryHeadlessTests
             ChatSession session = TransientSession();
             ObservableCollection<ConversationItemBase> items = new();
             RecordingHost host = new(session);
-            ConversationItemActions actions = new(items, host, new RecordingMessageService());
+            ConversationItemActions actions = new(items, host, new RecordingMessageService(),
+                new ConversationItemSink(items));
 
             ChatMessage opening = new(ChatRole.Assistant, "开场白")
             {
@@ -134,7 +136,8 @@ public class ConversationItemActionsRetryHeadlessTests
             ChatSession session = TransientSession();
             ObservableCollection<ConversationItemBase> items = new();
             RecordingHost host = new(session);
-            ConversationItemActions actions = new(items, host, new RecordingMessageService());
+            ConversationItemActions actions = new(items, host, new RecordingMessageService(),
+                new ConversationItemSink(items));
 
             ChatMessage user0 = new(ChatRole.User, "问题1");
             ChatMessage reply0 = new(ChatRole.Assistant, "回答1");

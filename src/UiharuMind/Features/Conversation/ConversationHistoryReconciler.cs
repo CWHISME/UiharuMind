@@ -63,7 +63,8 @@ public interface IConversationReconcileHost
     /// 不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
     /// </summary>
     /// <param name="history">当前历史</param>
-    void SettleStreamedItems(IReadOnlyList<ChatMessage> history);
+    /// <returns>尾部临时条目都已配上来源返回 true；还有没配上的（配对失败）返回 false</returns>
+    bool SettleStreamedItems(IReadOnlyList<ChatMessage> history);
 
     /// <summary>用量文案跟着新画出来的条目刷一次</summary>
     void RefreshTokenUsage();
@@ -87,17 +88,17 @@ public interface IConversationReconcileHost
 /// </summary>
 public sealed class ConversationHistoryReconciler
 {
-    private readonly ObservableCollection<ConversationItemBase> _items;
+    private readonly ConversationItemSink _sink;
     private readonly HistoryWindow _window;
     private readonly IConversationReconcileHost _host;
 
-    /// <param name="items">界面条目集合（就地对账）</param>
+    /// <param name="sink">条目集合的唯一写入口（判重按身份）</param>
     /// <param name="window">与加载期、裁剪共用的同一个渲染窗口</param>
     /// <param name="host">宿主机位</param>
-    public ConversationHistoryReconciler(ObservableCollection<ConversationItemBase> items, HistoryWindow window,
+    public ConversationHistoryReconciler(ConversationItemSink sink, HistoryWindow window,
         IConversationReconcileHost host)
     {
-        _items = items;
+        _sink = sink;
         _window = window;
         _host = host;
     }
@@ -122,9 +123,17 @@ public sealed class ConversationHistoryReconciler
         // 先配对再判定：“没人跑”不等于“都配好了”。轮末配对走后台线程，
         // 到这里仍可能是空来源——不先配就判定，尾巴上那张思考卡会被当成漏画又追加一张。
         // 本方法只在 UI 线程上调用，配对在这里做才是线程安全的。
-        _host.SettleStreamedItems(history);
+        if (!_host.SettleStreamedItems(history))
+        {
+            // 配对没猜出来：临时条目还留在界面上，照常补尾会画出第二份（旧 dedup 的内容认领
+            // 被身份体系取代后，这是唯一需要「不再猜」的兜底）。轮末没人跑，可以整窗重放——
+            // 旧条目连同没配上的临时身份一起销掉，按历史重画，重复与吞都不会发生
+            Log.Warning($"Streamed items could not be paired; replaying the window (session={session.SessionId}, {reason}).");
+            ReplayPreservingWindow(history);
+            return;
+        }
 
-        if (ConversationOrderCheck.FindDivergence(_items, history) is { } divergence)
+        if (ConversationOrderCheck.FindDivergence(_sink.Items, history) is { } divergence)
         {
             Log.Warning($"Conversation items diverged from history ({divergence}); "
                         + $"replaying the window (session={session.SessionId}, {reason}).");
@@ -132,8 +141,8 @@ public sealed class ConversationHistoryReconciler
             return;
         }
 
-        int missing = ConversationOrderCheck.FindMissingTail(_items, history);
-        if (missing <= 0) return; //负数说明界面指向了历史末尾之后，不是漏画，别拿越界下标去 Build
+        int missing = ConversationOrderCheck.FindMissingTailStart(_sink.Items, history);
+        if (missing < 0) return;
 
         AppendTail(session, history, missing, reason, liveTail: false);
     }
@@ -164,38 +173,41 @@ public sealed class ConversationHistoryReconciler
         IReadOnlyList<ChatMessage> snapshot = history ?? session.History.Snapshot();
 
         // 先配对：流画过的那几条认回来源，才不会当成漏画又画一遍
-        _host.SettleStreamedItems(snapshot);
+        if (!_host.SettleStreamedItems(snapshot))
+        {
+            // 轮内不能重放：转录器还攥着那几张流式条目的引用，整窗 DiscardAll 会把正在往上写的
+            // 气泡摘掉。宁可这一拍不补（内容其实已经在临时条目上），等轮末 Reconcile 全量重放
+            return;
+        }
 
-        int missing = ConversationOrderCheck.FindMissingTail(_items, snapshot);
-        if (missing <= 0) return; //负数说明界面指向了历史末尾之后，不是漏画，别拿越界下标去 Build
+        int from = ConversationOrderCheck.FindMissingTailStart(_sink.Items, snapshot);
+        if (from < 0) return;
 
-        AppendTail(session, snapshot, missing, reason, liveTail: true);
+        AppendTail(session, snapshot, from, reason, liveTail: true);
     }
 
     /// <summary>把历史尾部缺的那几条补画进条目集合</summary>
     /// <param name="session">会话（只用来写日志）</param>
     /// <param name="history">历史快照</param>
-    /// <param name="missing">缺的条数</param>
+    /// <param name="from">补画起始下标（第一条没画出来的消息）</param>
     /// <param name="reason">触发来源，进日志</param>
     /// <param name="liveTail">这一段是不是还在长的尾巴（见 <see cref="BuildLiveTailItems"/>）</param>
-    private void AppendTail(ChatSession session, IReadOnlyList<ChatMessage> history, int missing, string reason,
+    private void AppendTail(ChatSession session, IReadOnlyList<ChatMessage> history, int from, string reason,
         bool liveTail)
     {
-        int from = history.Count - missing;
         IReadOnlyList<ConversationItemBase> tail = liveTail
             ? _host.BuildLiveTailItems(history, from, history.Count)
             : _host.BuildItems(history, from, history.Count);
 
-        // 与落盘补渲染共用一道去重闸：流已画出、只是来源还没配对上的条目，按引用判重认不出来，
-        // 从前这里无条件 Add 就会在界面上多出一份（实机：同一句话两个气泡、思考与正文各一份）
-        int added = ConversationItemDedup.Append(_items, tail);
+        // 与落盘补渲染共用一道去重闸：判据是条目的稳定身份，同一条消息的同一个内容块只允许一个条目
+        int added = _sink.AddRange(tail);
         // 判重全挡掉了说明流其实已经画过，只是来源没配上：别报「补了 N 条」刷日志
         if (added > 0)
         {
             // 带上会话标识:一个窗口里同时挂着好几个会话实例(切走的那些还在后台收内容),
             // 只写「补了 62 条」根本不知道是哪一个(实机排查时为此多花了一小时)
             Log.Warning($"Conversation items diverged from history "
-                        + $"({missing} trailing message(s) not drawn); appended {added} item(s) "
+                        + $"({history.Count - from} trailing message(s) not drawn); appended {added} item(s) "
                         + $"(session={session.SessionId}, {reason}).");
         }
 
@@ -205,7 +217,7 @@ public sealed class ConversationHistoryReconciler
     /// <summary>全量重放当前窗口。旧条目的位图随条目走，直接 Clear 会泄漏</summary>
     private void ReplayPreservingWindow(IReadOnlyList<ChatMessage> history)
     {
-        _items.DiscardAll();
+        _sink.DiscardAll();
 
         // 保住用户已翻出的窗口：HistoryWindow.Reset 会把起点打回首屏，
         // 全量重放就把「加载更早」取回来的那几段又弄丢了。历史只增不减时起点原位；
@@ -213,10 +225,7 @@ public sealed class ConversationHistoryReconciler
         // 欠的正是其中一部分，留着反而会在稍后重复前插。
         int from = Math.Min(_window.Start, history.Count);
         _window.SetStart(from);
-        foreach (ConversationItemBase item in _host.BuildItems(history, from, history.Count))
-        {
-            _items.Add(item);
-        }
+        _sink.AddRange(_host.BuildItems(history, from, history.Count));
 
         _host.NotifyWindowChanged();
         _host.RefreshTokenUsage();

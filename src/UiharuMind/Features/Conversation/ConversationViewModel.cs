@@ -81,6 +81,12 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
     public ObservableCollection<ConversationItemBase> Items { get; } = new();
 
+    /// <summary>
+    /// 条目集合的唯一写入口。所有往 <see cref="Items"/> 加条目的地方都走它，
+    /// 判重按条目的稳定身份而不是对象引用或显示文本（见 <see cref="ConversationItemSink"/>）
+    /// </summary>
+    public ConversationItemSink ItemSink { get; }
+
     /// <summary>输入框上方的附件盘(待发附件与「附件怎么变成一条用户消息」)</summary>
     public AttachmentTrayViewData Tray { get; }
 
@@ -707,6 +713,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         // 探针：page.jump 的 vm/ctor 桶在此拆段（主题六 Stage 1）。Begin/End 探针关着时不落日志
         long ctorBegin = StartupPhaseProbe.Begin();
         _messages = messages;
+        ItemSink = new ConversationItemSink(Items);
         // 群壳里的回复是成员落盘后贴进来的，按落盘念；单聊正看着时边生成边念
         _readAloud = readAloud == null ? null
             : new ConversationReadAloud(Items, readAloud, speechStyles, () => IsDisplayed && !IsGroupSession);
@@ -733,10 +740,10 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             Tray.Attachments);
         StartupPhaseProbe.End("vm/sub:ui-models", uiModelsBegin);
         _binder = new ConversationSessionBinder(NotifyBusyChanged);
-        _itemActions = new ConversationItemActions(Items, this, messages);
-        _history = new ConversationHistoryRenderer(Items, _itemActions, () => _currentCharacter,
+        _itemActions = new ConversationItemActions(Items, this, messages, ItemSink);
+        _history = new ConversationHistoryRenderer(ItemSink, _itemActions, () => _currentCharacter,
             () => IsAutoCollapseThinking, () => GroupMember?.DeliveryRenderer, SessionPaths);
-        _pager = new ConversationHistoryPager(Items, _history,
+        _pager = new ConversationHistoryPager(ItemSink, _history,
             () => ConversationWindowHistory.Choose(CurrentRunner?.GetHistory(), CurrentSession),
             () => IsDisplayed, () => IsStuckToBottomSource?.Invoke() ?? true,
             () => CurrentSession?.LiveTurn.IsTurnRunning == true,
@@ -748,7 +755,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         _pager.ReturnedToLatest += () => ReturnedToLatest?.Invoke();
         SearchNavigator = new ConversationSearchNavigator(Items, _pager, () => CurrentSession?.History,
             () => IsSessionIdle && !IsCompacting);
-        _reconciler = new ConversationHistoryReconciler(Items, _pager.Window, this);
+        _reconciler = new ConversationHistoryReconciler(ItemSink, _pager.Window, this);
 
         var agentSetting = AgentSettingConfig.Current;
         // 工作目录选择器要在最早构造:它持有那份状态,后面几处都从它读。
@@ -777,7 +784,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             sessionIdSource: () => CurrentSession?.SessionId,
             approveExtension: extension => CurrentSession?.SetSessionApprovedExtension(extension, true),
             // 卡片与规则侧同一份界内判据：worktree 里的文件页面不该被标成「每次都问」
-            worktreeGrantsSource: () => CurrentSession?.SnapshotSessionApprovedWorktreeRoots());
+            worktreeGrantsSource: () => CurrentSession?.SnapshotSessionApprovedWorktreeRoots(),
+            sink: ItemSink);
         // 用量不经转录器转发:运行侧看得见同一条内容流,由它记账并写回会话本体,
         // 这里只负责把数字刷到界面上(UsageObserved 通知)
         _transcript.HousekeepingToolCalled += () => _ = RefreshTodosAsync();
@@ -1578,7 +1586,11 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
         // 乐观显示的气泡此刻就接上来源:轮首流里会再来一次同一个实例(UserMessageContent),
         // 转录器按引用认出它才不会画第二遍;副本落盘时由 WireStreamed 换成历史里那一条
-        Items.Add(_itemActions.Wire(ConversationItemFactory.CreateUser(text, userMessage, attachments), userMessage));
+        // 乐观气泡：用户消息创建时就带了标识，所以身份是正式的，落盘后不需要回填
+        TextConversationItem optimistic = _itemActions.Wire(
+            ConversationItemFactory.CreateUser(text, userMessage, attachments), userMessage);
+        optimistic.SetIdentity(ConversationItemIdentity.ForMessage(userMessage, EConversationItemKind.Text));
+        ItemSink.Add(optimistic);
         ScrollToEnd = true;
         await _turns.RunAsync(userMessage, text);
     }
@@ -1621,7 +1633,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         catch (Exception e)
         {
             Log.Error($"Append assistant message failed: {e}");
-            Items.Add(new ErrorItem { Message = e.Message });
+            ItemSink.Add(new ErrorItem { Message = e.Message });
             return;
         }
 
@@ -1633,7 +1645,8 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         TextConversationItem item = ConversationItemFactory.CreateAssistant(_currentCharacter);
         item.Append(text);
         item.IsDone = true;
-        Items.Add(_itemActions.Wire(item, message));
+        item.SetIdentity(ConversationItemIdentity.ForMessage(message, EConversationItemKind.Text));
+        ItemSink.Add(_itemActions.Wire(item, message));
         ScrollToEnd = true;
     }
 
@@ -1728,13 +1741,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
                 break;
 
             case ETurnNotice.Failed:
-                Items.Add(new ErrorItem { Message = notice.Payload ?? string.Empty });
+                ItemSink.Add(new ErrorItem { Message = notice.Payload ?? string.Empty });
                 break;
 
             case ETurnNotice.ProviderRejected:
                 // 上游拒收（安全检查未通过）：SDK 的英文原文对用户没有可操作性，换成一句能照着做的，
                 // 原话附在下面供查证。不说「你的内容没问题」——这一码也可能是真的内容判决，我们分不出来
-                Items.Add(new ErrorItem
+                ItemSink.Add(new ErrorItem
                 {
                     Message = string.IsNullOrWhiteSpace(notice.Payload)
                         ? Loc.Text(LangKey.UpstreamRejected)
@@ -1762,28 +1775,28 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             case ETurnNotice.KnowledgeRetrieved:
                 // 落盘那份由 SessionChatHistoryProvider 在轮末插进历史,这里只管本轮即时可见;
                 // 两者内容同源,重载会话后由回放分支再造出同一张卡
-                Items.Add(ConversationItemFactory.CreateKnowledgeCard(notice.Payload ?? string.Empty));
+                // 实时知识卡没有来源消息（落盘那份才有），但两侧用的是<b>同一份检索文本</b>，
+                // 所以按内容建身份：落盘补画时键相等，重复的那张被挡掉
+                ToolCallItem knowledgeCard = ConversationItemFactory.CreateKnowledgeCard(notice.Payload ?? string.Empty);
+                knowledgeCard.SetIdentity(ConversationItemIdentity.ForContent(
+                    notice.Payload ?? string.Empty, EConversationItemKind.Knowledge));
+                ItemSink.Add(knowledgeCard);
                 break;
 
             case ETurnNotice.HandoffWritten:
                 _handoffWriting.Hide();
                 // 压缩完成时占用已被重置(见 TurnDriver),进度条立即补刷,不等下一轮 Ended
                 Usage.RefreshCoalesced(force: true);
-                // 卡片默认由落盘/回放路径渲染(ConversationHistoryRenderer.Build 的 HandoffNote 分支),这里只收掉占位;
-                // 通知自己再 Add 一张会与落盘渲染各画一遍,同一条交接文档就出两张卡。
-                // 只在自己那一轮正跑时补画:落盘路径走 AppendHandedBackReports 不画交接文档,
-                // 只有通知这一条路。外部驱动者的轮(streaming)由 AppendAlongsideStream 画、
-                // 无轮时由 AppendWholeSlice 画,都不该在这里再补——判据多取半条反而会双画
-                // (Ensure 同步 Add 后,posted 的落盘渲染没有去重)
-                if (_driver.IsRunning)
-                {
-                    if (CurrentSession is { } session) _history.EnsureHandoffCard(session.History.Snapshot());
-                }
+                // 卡片默认由落盘/回放路径渲染(ConversationHistoryRenderer.Build 的 HandoffNote 分支),这里只收掉占位。
+                // 但自己那一轮跑着时落盘路径走 AppendHandedBackReports——它只补后续报告，不画交接文档，
+                // 所以这一条得在这里补。判据不再是「驱动方在不在跑」（那只是半条：外驱轮与空闲时
+                // 落盘路径会画），而是「界面上到底有没有这张卡」——身份判重自己会挡掉重复
+                if (CurrentSession is { } session) _history.EnsureHandoffCard(session.History.Snapshot());
                 break;
 
             case ETurnNotice.HandoffFailed:
                 _handoffWriting.Hide();
-                Items.Add(new ErrorItem { Message = Loc.Text(LangKey.HandoffFailed) });
+                ItemSink.Add(new ErrorItem { Message = Loc.Text(LangKey.HandoffFailed) });
                 break;
 
             case ETurnNotice.HandoffAborted:
@@ -1793,7 +1806,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
 
             case ETurnNotice.HandoffNothingToCompact:
                 _handoffWriting.Hide();
-                Items.Add(new ErrorItem
+                ItemSink.Add(new ErrorItem
                     { Message = Loc.Text(LangKey.HandoffNothingToCompact) });
                 break;
 
@@ -2039,7 +2052,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
             if (Abandoned()) return;
             if (body == null)
             {
-                Items.Add(new ErrorItem { Message = $"Session '{meta.SessionId}' could not be loaded." });
+                ItemSink.Add(new ErrorItem { Message = $"Session '{meta.SessionId}' could not be loaded." });
                 return;
             }
 
@@ -2095,7 +2108,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         catch (Exception e)
         {
             Log.Warning($"Load session failed: {e.Message}");
-            if (loadVersion == _loadVersion) Items.Add(new ErrorItem { Message = e.Message });
+            if (loadVersion == _loadVersion) ItemSink.Add(new ErrorItem { Message = e.Message });
         }
         finally
         {
@@ -2223,7 +2236,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     void IConversationTurnHost.NotifyPreparingChanged() => NotifyRunStateChanged();
 
     /// <inheritdoc />
-    void IConversationTurnHost.ShowError(string message) => Items.Add(new ErrorItem { Message = message });
+    void IConversationTurnHost.ShowError(string message) => ItemSink.Add(new ErrorItem { Message = message });
 
     //================= IConversationReconcileHost =================
     // 显式实现:对账要的只是这几个窄依赖,不该把整个视图模型暴露给对账器
@@ -2249,12 +2262,13 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
         int from, int to) => _history.Build(history, from, to, liveTail: true);
 
     /// <inheritdoc />
-    void IConversationReconcileHost.SettleStreamedItems(IReadOnlyList<ChatMessage> history)
+    bool IConversationReconcileHost.SettleStreamedItems(IReadOnlyList<ChatMessage> history)
     {
-        _itemActions.WireStreamed(history);
+        bool settled = _itemActions.WireStreamed(history);
         // 来源配好才认得出消息;旁观别人那一轮的思考卡与工具卡此刻改读驱动方落盘的耗时
         ThinkingItem.AdoptPersistedStats(Items);
         ToolCallItem.AdoptPersistedDurations(Items);
+        return settled;
     }
 
     /// <inheritdoc />
@@ -2353,14 +2367,15 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     /// <summary>丢掉上一个会话留在界面上的一切(条目、侧栏、开窗与转录器状态)</summary>
     private void ClearStreamState()
     {
-        Items.DiscardAll(); //气泡里的大位图随条目走,只 Clear 会漏掉一整个会话的图
+        ItemSink.DiscardAll(); //气泡里的大位图随条目走,只 Clear 会漏掉一整个会话的图
         // 整理中的占位卡随清空一起消失;若压缩还在跑,切回时由 LoadSessionAsync 重新挂上
         _handoffWriting.Forget();
 
         Todos.Clear();
         HasTodos = false;
         _pager.Reset();
-        Interjections.Items.Clear(); //待发的插话归属于那个会话的注入队列,切走就不再显示
+        // 待发的插话归属于那个会话的注入队列，切走就不再显示
+        Interjections.Items.Clear(); // sink-exempt: 插话队列是另一个数据集合，不是会话条目集合
         _transcript.Reset();
         Usage.Ledger.Reset();
         // 记忆库面板与 token 文本不在此清空:切会话时先空后填会让工具行闪烁,

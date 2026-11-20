@@ -43,6 +43,7 @@ namespace UiharuMind.Features.Conversation;
 public sealed class ConversationTranscript : ITurnSink
 {
     private readonly IList<ConversationItemBase> _target;
+    private readonly ConversationItemSink? _sink; //界面集合的写入口；回放缓冲为 null（每次都是新的一份）
     private readonly IReadOnlyList<ConversationItemBase>? _renderedBefore; //更早已渲染出去的条目(增量装配时用于跨批配对)
     private readonly Func<TextConversationItem> _createAssistantItem;
     private readonly Func<ChatMessage, IReadOnlyList<TextConversationItem>> _createUserItems;
@@ -60,6 +61,8 @@ public sealed class ConversationTranscript : ITurnSink
     private int _segmentFirstItem = -1; //本段第一条条目在落点里的下标,-1=本段还没有条目
     private bool _segmentHadThinking; //本段已经有过带正文的思考卡(含已收尾的)
     private bool _offThreadReported; //跨线程写入只报一次,否则流式期间会刷屏
+    private readonly ConversationItemOrdinals _ordinals = new(); //本段内按种类计数的序号
+    private string _segmentKey = string.Empty; //本段的临时身份键（一次服务调用一个）
 
     /// <summary>思考段收尾时是否自动折叠（流式进行中一律保持展开）</summary>
     public bool AutoCollapseThinking { get; set; }
@@ -121,9 +124,11 @@ public sealed class ConversationTranscript : ITurnSink
         Func<ChatMessage, IReadOnlyList<TextConversationItem>>? createUserItems = null,
         Func<string?>? sessionIdSource = null,
         Action<string>? approveExtension = null,
-        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? worktreeGrantsSource = null)
+        Func<IReadOnlyList<ChatSession.SessionWorktreeGrant>?>? worktreeGrantsSource = null,
+        ConversationItemSink? sink = null)
     {
         _target = target;
+        _sink = sink;
         _renderedBefore = renderedBefore;
         _isUiBound = target is INotifyCollectionChanged;
         _createAssistantItem = createAssistantItem;
@@ -149,6 +154,62 @@ public sealed class ConversationTranscript : ITurnSink
     }
 
     /// <summary>
+    /// 往落点加一个条目。界面集合走 <see cref="ConversationItemSink"/>（按身份判重），
+    /// 回放缓冲直接加（每次都是新的一份，不存在重复）
+    /// </summary>
+    /// <param name="item">待加的条目</param>
+    /// <returns>真的加进去了返回 true</returns>
+    private bool AddItem(ConversationItemBase item) => _sink?.Add(item) ?? AddToTarget(item);
+
+    private bool AddToTarget(ConversationItemBase item)
+    {
+        _target.Add(item); // sink-exempt: 回放缓冲是每次新建的普通 List，不是界面绑定集合
+        return true;
+    }
+
+    /// <summary>
+    /// 从落点摘掉一个条目（连同它的身份登记）
+    /// </summary>
+    /// <param name="item">要摘的条目</param>
+    private void RemoveItem(ConversationItemBase item)
+    {
+        if (_sink != null) _sink.Remove(item);
+        else _target.Remove(item); // sink-exempt: 回放缓冲没有身份表，直接摘即可
+    }
+
+    /// <summary>
+    /// 开一个新段的身份作用域。一次服务调用恰好产出一条助手消息，所以「段」就是「消息」：
+    /// 段内按种类计数的序号与历史侧消息内同类序号天然对齐（见 <see cref="ConversationItemOrdinals"/>）
+    /// </summary>
+    private void BeginSegmentIdentity()
+    {
+        _ordinals.Reset();
+        _segmentKey = Guid.NewGuid().ToString("N");
+    }
+
+    /// <summary>
+    /// 回放侧的消息边界：历史里没有 <see cref="MessageBoundaryContent"/>，
+    /// 由调用方在每条消息之前显式开一个新作用域，否则序号会跨消息累加、与流式侧对不上
+    /// </summary>
+    public void BeginMessageScope()
+    {
+        _segmentFirstItem = -1;
+        _segmentHadThinking = false;
+        BeginSegmentIdentity();
+    }
+
+    /// <summary>
+    /// 给刚画出的条目定临时身份。流式阶段消息还没落盘、标识还不存在，
+    /// 落盘配对时由 <c>Rebind</c> 换成正式身份
+    /// </summary>
+    /// <param name="item">刚画出的条目</param>
+    /// <param name="kind">条目种类</param>
+    private void AssignIdentity(ConversationItemBase item, EConversationItemKind kind)
+    {
+        item.SetIdentity(ConversationItemIdentity.Temporary(_segmentKey, kind, _ordinals.Next(kind)));
+    }
+
+    /// <summary>
     /// 装配一段内容
     /// </summary>
     /// <param name="content">来自执行者的一段内容</param>
@@ -159,6 +220,7 @@ public sealed class ConversationTranscript : ITurnSink
         {
             _segmentFirstItem = _target.Count;
             _segmentHadThinking = false;
+            BeginSegmentIdentity();
         }
         switch (content)
         {
@@ -200,7 +262,8 @@ public sealed class ConversationTranscript : ITurnSink
                         ? string.Empty
                         : string.Join("\n", shown.Arguments.Select(x => $"{x.Key}: {x.Value}")),
                 };
-                _target.Add(card);
+                AssignIdentity(card, EConversationItemKind.ToolCall);
+                AddItem(card);
                 // 跑表只在 live 起：回放卡没有“跑的过程”，一起跳只会刷出 0.1s 的假耗时
                 if (_isUiBound) card.BeginLiveTiming();
                 break;
@@ -264,14 +327,14 @@ public sealed class ConversationTranscript : ITurnSink
                     RememberShellPatternCallback = pattern => _rememberShellPattern?.Invoke(pattern),
                     ApproveExtensionCallback = extension => _approveExtension?.Invoke(extension),
                 };
-                _target.Add(approvalItem);
+                AddItem(approvalItem);
                 _pending.Add(approvalItem);
                 _round.Add(approvalItem);
                 ApprovalRequestCreated?.Invoke(approvalItem);
                 break;
 
             case ErrorContent error:
-                _target.Add(new ErrorItem { Message = error.Message });
+                AddItem(new ErrorItem { Message = error.Message });
                 break;
 
             case UsageContent:
@@ -292,7 +355,14 @@ public sealed class ConversationTranscript : ITurnSink
         IReadOnlyList<TextConversationItem> items = _createUserItems(message);
         if (items.Count == 0) return;
 
-        foreach (TextConversationItem item in items) _target.Add(item);
+        // 用户消息自带标识（创建时就盖了），所以这里直接给正式身份，不需要临时键与回填。
+        // 群投递一条拆成几只气泡，按序号区分
+        for (int i = 0; i < items.Count; i++)
+        {
+            items[i].SetIdentity(ConversationItemIdentity.ForMessage(message, EConversationItemKind.Text, i));
+            AddItem(items[i]);
+        }
+
         UserMessageRendered?.Invoke(message);
     }
 
@@ -415,12 +485,14 @@ public sealed class ConversationTranscript : ITurnSink
                         break;
                 }
 
-                _target.RemoveAt(i);
+                _target.RemoveAt(i); // sink-exempt: 回放缓冲没有身份表；界面集合下面用 Reindex 销账
             }
         }
 
         _segmentFirstItem = -1;
         _segmentHadThinking = false;
+        // 段作废了，它的身份登记也得销掉：不销的话重发那一发的新条目会被当成重复
+        _sink?.Reindex();
     }
 
     /// <summary>
@@ -483,7 +555,11 @@ public sealed class ConversationTranscript : ITurnSink
         // 插回本段开头，不是追加到当前末尾：票是网关在流的<b>任意一帧</b>塞过来的，
         // 按到达位置追加会变成「工具调用之后突然冒出一张思考卡」——思考其实在调用之前
         int at = _segmentFirstItem >= 0 ? _segmentFirstItem : _target.Count;
-        _target.Insert(at, card);
+        // 先定身份再插：插完才 AssignIdentity 的话身份永远进不了 sink 的表，
+        // Find/IsRendered 查不到这张卡，后续按 temp 身份查重就会失配
+        AssignIdentity(card, EConversationItemKind.Thinking);
+        if (_sink != null) _sink.Insert(at, card);
+        else _target.Insert(at, card); // sink-exempt: 回放缓冲没有身份表
         // 没有正文就没有增量来驱动上屏泵：踢一脚，标题上的耗时才开始走（与工具卡同一路）
         if (_isUiBound) card.BeginLiveTiming();
         _streamingThinking = card;
@@ -628,7 +704,13 @@ public sealed class ConversationTranscript : ITurnSink
         // 纯空白增量不开新气泡：部分模型调工具时 content 会带 "\n\n" 这类空白，
         // 开了气泡就是头像 + 空白边框，工具卡之外的纯噪音。有实质正文进来时再开。
         if (_streamingText == null && string.IsNullOrWhiteSpace(delta)) return;
-        if (_streamingText == null) _target.Add(_streamingText = _createAssistantItem());
+        if (_streamingText == null)
+        {
+            _streamingText = _createAssistantItem();
+            AssignIdentity(_streamingText, EConversationItemKind.Text);
+            AddItem(_streamingText);
+        }
+
         _streamingText.Append(delta);
     }
 
@@ -650,12 +732,18 @@ public sealed class ConversationTranscript : ITurnSink
         if (_streamingThinking is { IsContentUnavailable: true } placeholder)
         {
             placeholder.StopTiming(); //它自己不会收尾，跑表得先摘掉，否则泵一直攥着它
-            _target.Remove(placeholder);
+            RemoveItem(placeholder);
             _streamingThinking = null;
         }
 
         // 流式进行中保持展开,能看到它在想什么;段落收尾时按设置折叠
-        if (_streamingThinking == null) _target.Add(_streamingThinking = new ThinkingItem { IsExpanded = true });
+        if (_streamingThinking == null)
+        {
+            _streamingThinking = new ThinkingItem { IsExpanded = true };
+            AssignIdentity(_streamingThinking, EConversationItemKind.Thinking);
+            AddItem(_streamingThinking);
+        }
+
         _streamingThinking.Append(delta);
     }
 
@@ -677,7 +765,7 @@ public sealed class ConversationTranscript : ITurnSink
         // （无图、无注入正文）就摘掉——调工具前后那几个 "\n" 不该留一个空气泡。
         // 用户气泡不走这里（工厂直建），用户亲手发的空白不受影响。
         if (string.IsNullOrWhiteSpace(text.Message) && !text.HasImage && !text.HasInjectedText)
-            _target.Remove(text);
+            RemoveItem(text);
         else
             text.IsDone = true;
         _streamingText = null;

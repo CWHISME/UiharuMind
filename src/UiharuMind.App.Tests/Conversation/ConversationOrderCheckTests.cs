@@ -1,4 +1,6 @@
+using System;
 using Microsoft.Extensions.AI;
+using UiharuMind.Core.AI.Chat;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Items;
 
@@ -8,13 +10,23 @@ namespace UiharuMind.App.Tests.Conversation;
 /// 界面与历史的对账。一轮跑着的时候条目来自两股（实时内容流、历史落盘），
 /// 插话还要先乐观显示后落盘——顺序靠推演已经错过两次，所以留这道事后校验：
 /// 错了能自己发现，由调用方重放纠正。
+///
+/// <para>
+/// 判据是条目的<b>稳定身份</b>（消息标识 + 内容块序号 + 种类），不是对象引用：
+/// 引用会被会话冷卸载换掉，而身份跨实例稳定。
+/// </para>
 /// </summary>
 public class ConversationOrderCheckTests
 {
     private static TextConversationItem Item(ChatMessage? source, bool isUser = false)
     {
         TextConversationItem item = new(isUser) { Message = source?.Text ?? string.Empty };
-        item.SourceMessage = source;
+        if (source != null)
+        {
+            item.SourceMessage = source;
+            item.SetIdentity(ConversationItemIdentity.ForMessage(source, EConversationItemKind.Text));
+        }
+
         return item;
     }
 
@@ -40,21 +52,23 @@ public class ConversationOrderCheckTests
     }
 
     /// <summary>
-    /// 还没落盘的气泡（刚插的那句）没有来源消息。把它当成缺失会在每轮结尾误判，
+    /// 还没落盘的气泡（刚插的那句）没有正式身份。把它当成缺失会在每轮结尾误判，
     /// 于是每轮都重放一次——闪给用户看。
     /// </summary>
     [Fact]
     public void AnUnpairedBubbleIsNotDivergence()
     {
         ChatMessage first = new(ChatRole.User, "任务");
-        List<ConversationItemBase> items = [Item(first, true), Item(null, true)];
+        TextConversationItem pending = new(true) { Message = "刚插的话" };
+        pending.SetIdentity(ConversationItemIdentity.Temporary("seg-1", EConversationItemKind.Text));
+        List<ConversationItemBase> items = [Item(first, true), pending];
 
         Assert.Null(ConversationOrderCheck.FindDivergence(items, [first]));
     }
 
     /// <summary>
     /// 来源已不在历史里就是分歧：跑着时被原地替换掉的旧报告正是这个形状。
-    /// 跳过它的话，替换不改变历史条数，尾部检查也会报 0——旧行永远修不好。
+    /// 跳过它的话，替换不改变历史条数，尾部检查也会报「没漏」——旧行永远修不好。
     /// </summary>
     [Fact]
     public void ASourceMissingFromHistoryIsDivergence()
@@ -68,7 +82,7 @@ public class ConversationOrderCheckTests
     }
 
     /// <summary>
-    /// 上一个用例的另一半：光看尾部会报 1（新结论确实没画），直接追加就会旧行、新行并存。
+    /// 上一个用例的另一半：光看尾部会报「新结论没画」，直接追加就会旧行、新行并存。
     /// 所以对账必须先查分歧（全量重放把旧行换掉），再查尾部——顺序反了就是重复。
     /// </summary>
     [Fact]
@@ -79,7 +93,7 @@ public class ConversationOrderCheckTests
         ChatMessage replaced = new(ChatRole.User, "新结论");
         List<ConversationItemBase> items = [Item(question, true), Item(oldReport)];
 
-        Assert.Equal(1, ConversationOrderCheck.FindMissingTail(items, [question, replaced]));
+        Assert.Equal(1, ConversationOrderCheck.FindMissingTailStart(items, [question, replaced]));
         Assert.NotNull(ConversationOrderCheck.FindDivergence(items, [question, replaced]));
     }
 
@@ -88,12 +102,14 @@ public class ConversationOrderCheckTests
     public void SeveralItemsSharingOneSourceAreInOrder()
     {
         ChatMessage message = new(ChatRole.Assistant, "回答");
-        List<ConversationItemBase> items = [Item(message), Item(message)];
+        ThinkingItem thinking = new() { Message = "想一下。" };
+        thinking.SetIdentity(ConversationItemIdentity.ForMessage(message, EConversationItemKind.Thinking));
+        List<ConversationItemBase> items = [thinking, Item(message)];
 
         Assert.Null(ConversationOrderCheck.FindDivergence(items, [message]));
     }
 
-    /// <summary>正文相同的两条消息是两条：认人靠引用，合并了顺序就判不出来</summary>
+    /// <summary>正文相同的两条消息是两条：认人靠标识，合并了顺序就判不出来</summary>
     [Fact]
     public void MessagesWithTheSameTextAreToldApart()
     {
@@ -114,7 +130,8 @@ public class ConversationOrderCheckTests
         ChatMessage reply = new(ChatRole.Assistant, "整理版");
         List<ConversationItemBase> items = [Item(question, true), Item(answer)];
 
-        Assert.Equal(2, ConversationOrderCheck.FindMissingTail(items, [question, answer, report, reply]));
+        // 补画从第一条没画出来的消息起（下标 2），不是「缺几条」那个减法
+        Assert.Equal(2, ConversationOrderCheck.FindMissingTailStart(items, [question, answer, report, reply]));
     }
 
     /// <summary>
@@ -128,10 +145,10 @@ public class ConversationOrderCheckTests
         ChatMessage result = new(ChatRole.Tool, new List<AIContent> { new FunctionResultContent("c1", "done") });
         List<ConversationItemBase> items = [Item(call)];
 
-        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, [call, result]));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, [call, result]));
     }
 
-    /// <summary>工具结果之后真有漏画的助手消息：仍按整段尾部报，from 切片不能跳过中间那段</summary>
+    /// <summary>工具结果之后真有漏画的助手消息：补画起点落在它身上，不跳过中间那段</summary>
     [Fact]
     public void MissingAssistantAfterToolResultIsStillReported()
     {
@@ -140,10 +157,10 @@ public class ConversationOrderCheckTests
         ChatMessage reply = new(ChatRole.Assistant, "跑完了。");
         List<ConversationItemBase> items = [Item(call)];
 
-        Assert.Equal(2, ConversationOrderCheck.FindMissingTail(items, [call, result, reply]));
+        Assert.Equal(2, ConversationOrderCheck.FindMissingTailStart(items, [call, result, reply]));
     }
 
-    /// <summary>对得上时是 0；窗口之外的旧消息本来就不画，不算漏</summary>
+    /// <summary>对得上时是 -1；窗口之外的旧消息本来就不画，不算漏</summary>
     [Fact]
     public void DrawnTailIsNotMissing()
     {
@@ -152,17 +169,19 @@ public class ConversationOrderCheckTests
         ChatMessage answer = new(ChatRole.Assistant, "回答");
         List<ConversationItemBase> items = [Item(question, true), Item(answer)];
 
-        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, [old, question, answer]));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, [old, question, answer]));
     }
 
-    /// <summary>还没配对的气泡（来源是空）不参与判定，否则每轮直播都要误判一次</summary>
+    /// <summary>还没配对的气泡（只有临时身份）不算画过，但也不制造漏画</summary>
     [Fact]
     public void UnpairedBubblesDoNotCountAsDrawn()
     {
         ChatMessage question = new(ChatRole.User, "任务");
-        List<ConversationItemBase> items = [Item(question, true), Item(null, true)];
+        TextConversationItem pending = new(true) { Message = "刚插的话" };
+        pending.SetIdentity(ConversationItemIdentity.Temporary("seg-1", EConversationItemKind.Text));
+        List<ConversationItemBase> items = [Item(question, true), pending];
 
-        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, [question]));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, [question]));
     }
 
     /// <summary>
@@ -179,7 +198,45 @@ public class ConversationOrderCheckTests
         ChatMessage later = new(ChatRole.User, "后续");
         List<ConversationItemBase> items = [Item(first, true), Item(later, true)]; //note 漏画
 
-        Assert.Equal(0, ConversationOrderCheck.FindMissingTail(items, [first, note, later]));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, [first, note, later]));
         Assert.Null(ConversationOrderCheck.FindDivergence(items, [first, note, later]));
+    }
+
+    /// <summary>
+    /// 身份跨消息实例稳定：同一份文件反序列化出的两个实例指向同一条消息。
+    /// 这是「会话冷卸载换掉 ChatMessage 实例」那类 bug 的根治点
+    /// </summary>
+    [Fact]
+    public void IdentitySurvivesMessageInstanceReplacement()
+    {
+        const string line = """{"role":"assistant","contents":[{"$type":"text","text":"回答"}],"messageId":"fixed-id"}""";
+        ChatMessage first = HistoryJsonl.TryParseLine(line)!;
+        ChatMessage second = HistoryJsonl.TryParseLine(line)!;
+        Assert.NotSame(first, second);
+
+        List<ConversationItemBase> items = [Item(first)];
+
+        Assert.Null(ConversationOrderCheck.FindDivergence(items, [second]));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, [second]));
+    }
+
+    /// <summary>
+    /// 老存档缺 id 的消息换实例后仍认得出：回落键必须确定，
+    /// 随机 Guid 会让两侧身份判等失败、同一条消息被补画一份
+    /// </summary>
+    [Fact]
+    public void IdentityWithoutMessageId_SurvivesInstanceReplacement()
+    {
+        DateTimeOffset saidAt = new(2026, 11, 20, 12, 0, 0, TimeSpan.FromHours(8));
+        ChatMessage first = new(ChatRole.User, "老存档的提问") { CreatedAt = saidAt };
+        ChatMessage second = new(ChatRole.User, "老存档的提问") { CreatedAt = saidAt };
+        Assert.Null(first.MessageId);
+        Assert.Null(second.MessageId);
+
+        List<ConversationItemBase> items = [Item(first, true)];
+
+        Assert.Equal(ChatMessageIdentity.Ensure(first), ChatMessageIdentity.Ensure(second));
+        Assert.Null(ConversationOrderCheck.FindDivergence(items, [second]));
+        Assert.Equal(-1, ConversationOrderCheck.FindMissingTailStart(items, [second]));
     }
 }
