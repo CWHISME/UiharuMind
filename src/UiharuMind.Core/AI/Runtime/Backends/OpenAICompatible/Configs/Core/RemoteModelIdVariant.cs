@@ -23,8 +23,9 @@ namespace UiharuMind.Core.Configs.RemoteAI;
 /// 显示别名,非空时创建窗口的下拉框优先展示它(如标注「免费」);空则回退显示 ModelId。
 /// </param>
 /// <param name="ThinkingField">
-/// 该模型的思考 wire 字段名(reasoning_content/reasoning/reasoning_text);空表示未声明,
-/// 消费时按 运行时观测值 → 本预设值 → reasoning_content 查表。
+/// 该模型<b>请求侧</b>的思考 wire 字段名(reasoning_content/reasoning/reasoning_text);空表示未声明,
+/// 消费时按 本预设值 → deepseek 兜底 → 响应观测值 → reasoning_content 查表。
+/// 响应字段名 ≠ 请求字段名时（如 CommandCode 的 DeepSeek）靠预设或 deepseek 兜底纠正观测值。
 /// </param>
 /// <param name="RequireReasoningOnEveryAssistantMessage">
 /// <b>每一条</b>助手消息都必须带思考字段:有正文回正文,没正文补非空占位。

@@ -30,12 +30,11 @@ internal static class ReasoningReplayPolicy
         && (model.RequireReasoningOnEveryAssistantMessage || model.ReplayExistingReasoning is not false);
 
     /// <summary>
-    /// 回填用的 wire 键名：取模型给的请求侧键名（预设 → 响应观测值 → 默认），空串退回 <see cref="DefaultField"/>
-    /// ——空串拼进请求体就是 <c>"": "..."</c>，服务端认不出。
+    /// 回填用的 wire 键名：取模型给的请求侧键名（预设 → deepseek 兜底 → 响应观测值 → 默认），
+    /// 空串退回 <see cref="DefaultField"/>——空串拼进请求体就是 <c>"": "..."</c>，服务端认不出。
     ///
-    /// <para>观测值经 <see cref="BaseRemoteModelConfig.RequestThinkingField"/> 进入：该端点响应给 <c>reasoning</c>
-    /// 时回放也用 <c>reasoning</c> 写回（opencode/pi 同款）。仅当预设显式声明 <c>ThinkingField</c>
-    /// 时预设优先于观测值。</para>
+    /// <para>deepseek 系兜底优先于观测值：CommandCode 的 DeepSeek 响应给 <c>reasoning</c> 但请求只认
+    /// <c>reasoning_content</c>，跟随观测值会被静默丢弃（重复思考）。其它端点的观测值照旧生效。</para>
     /// </summary>
     /// <param name="model">目标模型</param>
     /// <returns>生效的键名</returns>

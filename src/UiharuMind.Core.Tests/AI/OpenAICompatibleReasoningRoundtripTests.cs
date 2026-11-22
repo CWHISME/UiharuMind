@@ -266,24 +266,30 @@ public class OpenAICompatibleReasoningRoundtripTests
     }
 
     /// <summary>
-    /// 从模型配置一路查到请求体里的键名：预设表 → 响应观测值 → 默认。
-    /// 还原 ADR 0095 解耦后，观测值参与键名解析（opencode/pi 同款）。
+    /// 从模型配置一路查到请求体里的键名：预设表 → deepseek 兜底 → 响应观测值 → 默认。
+    /// deepseek 兜底盖过观测值；其它端点观测值照旧生效（与 opencode 逐 provider 配置同款）。
     /// </summary>
     [Fact]
-    public void ReasoningField_ResolvesPresetThenObservationThenDefault()
+    public void ReasoningField_ResolvesPresetThenDeepSeekThenObservationThenDefault()
     {
         var observed = new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "glm-5.2" } };
         observed.Config.ObservedThinkingFields["glm-5.2"] = "reasoning_text";
         Assert.Equal("reasoning_text", RequestRewrite.For(observed).ReasoningField);
         Assert.Equal("reasoning_text", ReasoningReplayPolicy.FieldName(observed));
 
-        // 预设声明照常生效（优先于观测值）
+        // 预设声明照常生效（优先于观测值与兜底）
         var preseted = new RemoteModelInfo
         {
             Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" },
         };
         Assert.Equal("reasoning", RequestRewrite.For(preseted).ReasoningField);
         Assert.Equal("reasoning", ReasoningReplayPolicy.FieldName(preseted));
+
+        // deepseek 兜底盖过观测值：CommandCode DeepSeek 观测到 reasoning，请求侧仍须 reasoning_content
+        var deepseek = new RemoteModelInfo { Config = new RemoteCommandCodeModelConfig { ModelId = "deepseek/deepseek-v4.1-flash" } };
+        deepseek.Config.ObservedThinkingFields["deepseek/deepseek-v4.1-flash"] = "reasoning";
+        Assert.Equal("reasoning_content", RequestRewrite.For(deepseek).ReasoningField);
+        Assert.Equal("reasoning_content", ReasoningReplayPolicy.FieldName(deepseek));
 
         Assert.Equal("reasoning_content", ReasoningReplayPolicy.FieldName(new RemoteModelInfo()));
         Assert.Equal("reasoning_content", ReasoningReplayPolicy.FieldName(null));

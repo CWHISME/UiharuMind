@@ -289,22 +289,24 @@ public class BaseRemoteModelConfig : ConfigBase, ILlmModel
     public Dictionary<string, string> ObservedThinkingFields { get; set; } = new();
 
     /// <summary>
-    /// 回填思考正文用的<b>请求侧</b> wire 键名：该 ModelId 的预设表 → <b>响应观测值</b> → <c>reasoning_content</c>。
+    /// 回填思考正文用的<b>请求侧</b> wire 键名：该 ModelId 的预设表 → <b>deepseek 兜底</b> → <b>响应观测值</b>
+    /// → <c>reasoning_content</c>。
     ///
-    /// <para><b>还原 ADR 0095 解耦</b>：原先刻意不取运行时观测值（CommandCode 响应给 <c>reasoning</c>、
-    /// 请求只认 <c>reasoning_content</c>，拿观测值回填会被当缺字段 400）。但实测该问题非普遍，
-    /// 且 opencode/pi 都是「观测到什么字段就用什么字段回放」，故改回跟随观测值，与参考实现对齐。
-    /// 代价：对「响应用 <c>reasoning</c>、请求只认 <c>reasoning_content</c>」的端点会重新 400——
-    /// 这类端点需在预设表里显式写 <see cref="RemoteModelIdVariant.ThinkingField"/> 覆盖。</para>
+    /// <para><b>deepseek 兜底优先于观测值</b>：响应字段名与请求字段名是两回事，CommandCode 的 DeepSeek
+    /// 响应给 <c>reasoning</c>、请求只认 <c>reasoning_content</c>，跟随观测值会被网关当未知字段静默丢弃——
+    /// 历史思考等于没带回去，表现为每轮重复思考（严格校验的端点则 400）。而 cerebras/groq 这类
+    /// 「响应 reasoning、请求也认 reasoning」的端点没有兜底，仍走观测值（opencode 逐 provider 配置同款）。</para>
     /// </summary>
     public string RequestThinkingField =>
         ModelIdVariants.TryGetValue(ModelId, out RemoteModelIdVariant? variant) &&
         !string.IsNullOrWhiteSpace(variant.ThinkingField)
             ? variant.ThinkingField
-            : ObservedThinkingFields.TryGetValue(ModelId, out string? observed) &&
-              !string.IsNullOrWhiteSpace(observed)
-                ? observed
-                : "reasoning_content";
+            : ModelId.Contains("deepseek", StringComparison.OrdinalIgnoreCase)
+                ? "reasoning_content"
+                : ObservedThinkingFields.TryGetValue(ModelId, out string? observed) &&
+                  !string.IsNullOrWhiteSpace(observed)
+                    ? observed
+                    : "reasoning_content";
 
     /// <summary>
     /// 接口要的是「回填键名」即 <see cref="RequestThinkingField"/>。显式实现，

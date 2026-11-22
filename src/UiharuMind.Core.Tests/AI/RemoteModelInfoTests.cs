@@ -74,13 +74,12 @@ public class RemoteModelInfoTests
     }
 
     /// <summary>
-    /// 回填键名（请求侧）按 预设表 → 响应观测值 → 默认 三级解析，与 opencode/pi 对齐。
-    /// 观测值参与：该端点响应给 <c>reasoning</c> 时，回放也用 <c>reasoning</c> 写回。
-    /// 代价：对「响应用 reasoning、请求只认 reasoning_content」的端点（如 CommandCode 部分变体）
-    /// 会重新 400，需在预设表里显式写 <see cref="RemoteModelIdVariant.ThinkingField"/> 覆盖。
+    /// 回填键名（请求侧）：预设表 → deepseek 兜底 → 响应观测值 → 默认。
+    /// deepseek 系兜底优先于观测值——CommandCode 的 DeepSeek 响应给 <c>reasoning</c>、请求只认
+    /// <c>reasoning_content</c>，跟随观测值回填会被静默丢弃，历史思考等于没带回去（重复思考）。
     /// </summary>
     [Fact]
-    public void ThinkingField_ResolvesPresetThenObservationThenDefault()
+    public void ThinkingField_ResolvesPresetThenDeepSeekThenObservationThenDefault()
     {
         // 预设优先：sensenova 自研思考字段是 reasoning，盖过观测到的 reasoning_text
         var observed = new RemoteModelInfo
@@ -93,15 +92,11 @@ public class RemoteModelInfoTests
         };
         Assert.Equal("reasoning", observed.ThinkingField); // 预设表声明的那个
 
-        // 预设表(sensenova 自研思考字段是 reasoning)
+        // 纯预设（无观测值）：预设声明照常生效
         var preseted = new RemoteModelInfo { Config = new RemoteSensenovaModelConfig { ModelId = "sensenova-6.8-flash-lite" } };
         Assert.Equal("reasoning", preseted.ThinkingField);
 
-        // 默认 reasoning_content
-        var generic = new RemoteModelInfo { Config = new RemoteModelConfig { ModelId = "anything" } };
-        Assert.Equal("reasoning_content", generic.ThinkingField);
-
-        // 无预设、观测到 reasoning 的网关：请求跟随观测值
+        // 观测值生效：无预设、非 deepseek 的端点跟随响应字段名
         var gateway = new RemoteModelInfo
         {
             Config = new RemoteCommandCodeModelConfig
@@ -111,6 +106,21 @@ public class RemoteModelInfoTests
             },
         };
         Assert.Equal("reasoning", gateway.ThinkingField);
+
+        // 回归：CommandCode 的 DeepSeek 观测到 reasoning，但 deepseek 兜底盖过它，必须用 reasoning_content
+        var deepseek = new RemoteModelInfo
+        {
+            Config = new RemoteCommandCodeModelConfig
+            {
+                ModelId = "deepseek/deepseek-v4.1-flash",
+                ObservedThinkingFields = { ["deepseek/deepseek-v4.1-flash"] = "reasoning" },
+            },
+        };
+        Assert.Equal("reasoning_content", deepseek.ThinkingField);
+
+        // 默认 reasoning_content
+        var generic = new RemoteModelInfo { Config = new RemoteModelConfig { ModelId = "anything" } };
+        Assert.Equal("reasoning_content", generic.ThinkingField);
     }
 
     /// <summary>观测值按 ModelId 隔离：同端点从 6.8 切到 DeepSeek，各记各的，不串台</summary>

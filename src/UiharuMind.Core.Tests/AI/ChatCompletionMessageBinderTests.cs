@@ -7,6 +7,8 @@ using UiharuMind.Core.AI.Models;
 using UiharuMind.Core.AI.Net;
 using UiharuMind.Core.AI.Net.Request;
 using UiharuMind.Core.AI.Net.Transport;
+using UiharuMind.Core.AI.Reasoning;
+using UiharuMind.Core.Configs.RemoteAI;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace UiharuMind.Core.Tests.AI;
@@ -51,6 +53,31 @@ public class ChatCompletionMessageBinderTests
         ChatMessage? bound = ChatCompletionMessageBinder.Attach(message, reasoning, ticket, field);
         Assert.NotNull(bound);
         return bound!;
+    }
+
+    /// <summary>
+    /// 从真实配置取键名写到 wire：CommandCode DeepSeek 观测到 <c>reasoning</c>，
+    /// deepseek 兜底必须盖过它，请求体上出现的键是 <c>reasoning_content</c>——
+    /// 光断言 <see cref="ReasoningReplayPolicy.FieldName"/> 的返回值不够，这里钉住实际字节。
+    /// </summary>
+    [Fact]
+    public void WireShape_CommandCodeDeepSeek_UsesReasoningContentDespiteObservation()
+    {
+        const string modelId = "deepseek/deepseek-v4.1-flash";
+        var model = new RemoteModelInfo
+        {
+            Config = new RemoteCommandCodeModelConfig
+            {
+                ModelId = modelId,
+                ObservedThinkingFields = { [modelId] = "reasoning" },
+            },
+        };
+
+        string wire = Wire(Bind(Assistant("查一下", "想"), "想", null,
+            ReasoningReplayPolicy.FieldName(model)));
+
+        Assert.Contains("\"reasoning_content\":\"想\"", wire);
+        Assert.DoesNotContain("\"reasoning\":", wire);
     }
 
     // ── 绑定到对象 ──────────────────────────────────────────────
