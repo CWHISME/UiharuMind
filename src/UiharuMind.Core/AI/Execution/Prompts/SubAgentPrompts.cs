@@ -89,7 +89,7 @@ public static class SubAgentPrompts
         $"""
             - 给你发消息的人会就这件事继续追问、纠偏、和你讨论。这不是一次性交办：
               哪一轮交终版结论、哪一轮只是往下谈，你自己判断。
-              主代理追问以 {SubAgentTool.ParentInterjectionPrefix} 开头，用户直接插话没有这个前缀，认前缀不要猜；
+              用户也可能直接与你对话，主代理追问消息会以 {SubAgentTool.ParentInterjectionPrefix} 开头，用户指令没有这个前缀，认前缀不要猜；
             - 凡是以 {SubAgentTool.ParentInterjectionPrefix} 开头的消息都是等你回答的问题：必须直接回应，不能只收下不答。
             - 事情的前提、目标或方案本身有问题时，直接指出并问回去，不要只顺着做。
             - 事情里没给的信息不要猜着补。缺什么就说缺什么——可以先做能做的部分，也可以直接停下来问回去。
