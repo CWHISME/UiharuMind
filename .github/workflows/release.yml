@@ -137,6 +137,17 @@ jobs:
     needs: [version, build]
     runs-on: ubuntu-latest
     steps:
+      # release job 只组 Release notes 与建草稿，用不着仓库全量内容；
+      # checkout 要带亚模块还拖慢，这里只把 CHANGELOG.md 拉下来给 awk 用
+      - name: 拉取 CHANGELOG.md（不检出仓库）
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api -H "Accept: application/vnd.github.raw+json" \
+            "repos/$GITHUB_REPOSITORY/contents/CHANGELOG.md?ref=$GITHUB_REF_NAME" \
+            > CHANGELOG.md
+
       - name: 下载全部产物
         uses: actions/download-artifact@v4
         with:
