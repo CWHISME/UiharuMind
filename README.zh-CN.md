@@ -1,10 +1,31 @@
-# UiharuMind
+<p align="center">
+  <img src="src/UiharuMind/Assets/Icon.png" alt="UiharuMind" width="240" height="240">
+</p>
 
-[![许可证][license-shield]][license]
-[![最新版本][release-shield]][releases]
-[![平台][platform-shield]](#下载)
+<h1 align="center">UiharuMind</h1>
 
-[English](README.md) · **中文**
+<p align="center">
+  <strong>面向日常桌面使用的跨平台 AI 助手</strong><br>
+  本地 GGUF · 智能体 · 群聊 · 快捷工具 · 语音与生图
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/CWHISME/UiharuMind" alt="许可证"></a>
+  <a href="https://github.com/CWHISME/UiharuMind/releases"><img src="https://img.shields.io/github/v/release/CWHISME/UiharuMind?include_prereleases&label=release" alt="最新版本"></a>
+  <a href="#下载"><img src="https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Windows%20x64%20%7C%20Linux%20x64%20%28WIP%29-informational" alt="平台"></a>
+</p>
+
+<p align="center">
+  <a href="#功能特性">功能特性</a> ·
+  <a href="#截图">截图</a> ·
+  <a href="#下载">下载</a> ·
+  <a href="#快速开始">快速开始</a> ·
+  <a href="#从源码构建">从源码构建</a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> · <strong>中文</strong>
+</p>
 
 UiharuMind 是一个面向日常桌面使用的跨平台 AI 助手。它可以通过 llama.cpp 在本地运行 GGUF 模型，也可以调用任何兼容
 OpenAI 接口的远程模型。除了聊天，它还给模型提供在目录里干活的智能体、开着就能在你离席时继续推进的群聊，以及截图 OCR、

@@ -1,10 +1,31 @@
-# UiharuMind
+<p align="center">
+  <img src="src/UiharuMind/Assets/Icon.png" alt="UiharuMind" width="240" height="240">
+</p>
 
-[![License][license-shield]][license]
-[![Latest release][release-shield]][releases]
-[![Platform][platform-shield]](#download)
+<h1 align="center">UiharuMind</h1>
 
-**English** · [中文](README.zh-CN.md)
+<p align="center">
+  <strong>Cross-platform desktop AI assistant</strong><br>
+  Local GGUF models · Agents · Group chat · Quick tools · Speech &amp; image
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/CWHISME/UiharuMind" alt="License"></a>
+  <a href="https://github.com/CWHISME/UiharuMind/releases"><img src="https://img.shields.io/github/v/release/CWHISME/UiharuMind?include_prereleases&label=release" alt="Latest release"></a>
+  <a href="#download"><img src="https://img.shields.io/badge/platform-macOS%20arm64%20%7C%20Windows%20x64%20%7C%20Linux%20x64%20%28WIP%29-informational" alt="Platform"></a>
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#download">Download</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#build-from-source">Build from source</a>
+</p>
+
+<p align="center">
+  <strong>English</strong> · <a href="README.zh-CN.md">中文</a>
+</p>
 
 UiharuMind is a cross-platform desktop AI assistant. It runs GGUF models locally through llama.cpp, or talks to
 any OpenAI-compatible API. Beyond chatting, it gives models agents that work in a folder, group chats that keep going
