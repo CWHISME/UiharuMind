@@ -13,7 +13,6 @@
     Height="760"
     MinWidth="980"
     MinHeight="640"
-    Icon="/Assets/Icon.png"
     x:Class="UiharuMind.Features.AutoClick.AutoClickWindow" x:DataType="vm:QuickAutoClickViewModel"
     Title="{Binding WindowTitle}">
 

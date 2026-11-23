@@ -73,7 +73,6 @@ public abstract class UiharuWindowBase : Window
         OnPreShow();
         if (isFirstShow)
         {
-            if (IconUtils.CreateAppWindowIcon() is { } windowIcon) Icon = windowIcon;
             StartWidth = (int)Width;
             StartHeight = (int)Height;
             Show();

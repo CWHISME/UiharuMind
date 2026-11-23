@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using UiharuMind.Core.AI.Character;
@@ -115,26 +114,6 @@ public class IconUtils
 
     /// <summary>Assets 下资源的统一 URI（前缀只在这里拼）</summary>
     public static Uri AssetUri(string fileName) => new("avares://UiharuMind/Assets/" + fileName);
-
-    /// <summary>
-    /// 窗口标题栏图标。从 Icon.ico 的<b>流</b>创建（而不是 Bitmap）：Windows 上
-    /// <c>WindowIcon(Bitmap)</c> 走 CreateIconIndirect，其 AND mask 只认 alpha==0 为透明，
-    /// 圆角那圈抗锯齿半透明像素会被拍平成不透明，观感退回直角；ICO 数据走
-    /// CreateIconFromResourceEx，alpha 原样保留，圆角才能显示。
-    /// </summary>
-    public static WindowIcon? CreateAppWindowIcon()
-    {
-        try
-        {
-            using Stream stream = AssetLoader.Open(AssetUri("Icon.ico"));
-            return new WindowIcon(stream);
-        }
-        catch (Exception e)
-        {
-            Log.Error(e);
-            return null;
-        }
-    }
 
     /// <summary>
     /// Assets 下的图片路径

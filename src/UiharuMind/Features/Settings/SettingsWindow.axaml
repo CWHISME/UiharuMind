@@ -10,7 +10,6 @@
         MinWidth="760"
         MinHeight="520"
         x:Class="UiharuMind.Features.Settings.SettingsWindow"
-        Icon="/Assets/Icon.png"
         Title="{loc:Loc SettingsWindowTitle}"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 

@@ -5,7 +5,6 @@
         xmlns:views="clr-namespace:UiharuMind.Shared.Shell"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="UiharuMind.Shared.Shell.MainWindow"
-        Icon="/Assets/Icon.png"
         Height="800"
         MinHeight="560"
         Width="1400"

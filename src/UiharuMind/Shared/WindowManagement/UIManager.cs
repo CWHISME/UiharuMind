@@ -298,7 +298,6 @@ public static class UIManager
         string? title = null)
     {
         StringContentEditWindow window = new StringContentEditWindow();
-        if (IconUtils.CreateAppWindowIcon() is { } windowIcon) window.Icon = windowIcon;
         if (!string.IsNullOrEmpty(title)) window.Title = title;
         window.DataContext = new StringContentEditWindowViewModel(content, null);
         return await window.ShowDialog<string?>(owner ?? UIManager.GetFocusWindow());
