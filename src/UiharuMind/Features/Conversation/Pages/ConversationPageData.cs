@@ -210,7 +210,7 @@ public partial class ConversationPageData : ConversationPageDataBase
             // 和已选角色重置掉（此处 Conversation 仍是旧实例，基类赋值在其后，
             // 继承只对空态生效；角色跨档不继承，见 InheritCharacterId）
             conversation.NewSessionCharacterId =
-                InheritCharacterId(EConversationType.Agent, nameof(DefaultCharacter.ChenXiAgent));
+                InheritCharacterId(EConversationType.Agent, nameof(DefaultCharacter.RationalAgent));
             conversation.NewSessionIsAgentForm = true;
             if (Conversation?.Workspace.Path is { } lastPath) conversation.Workspace.Path = lastPath;
         }

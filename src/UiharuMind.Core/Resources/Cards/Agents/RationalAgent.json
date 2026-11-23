@@ -1,10 +1,11 @@
 {
   "IsAgent": true,
   "IsUserCard": false,
+  "CharacterIcon": "avares://UiharuMind/Assets/Icon.png",
   "Config": {
     "PromptConfig": {
       "name": "OP-01",
-      "description": "推理协议（目标-证据-代价）：无人格设定，只跑决策函数。",
+      "description": "OP-01",
       "anchor": ""
     },
     "ExecutionSettings": {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Avalonia.Controls;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using UiharuMind.Core.AI.Character;
@@ -16,6 +17,8 @@ public class IconUtils
     // 谁把它们释放了,整个进程的头像与托盘图标一起变空白
     private static Bitmap? _defaultIcon;
 
+    private static Bitmap? _defaultCharIcon; //默认角色头像(花)，与应用图标解耦
+
     // private static Bitmap? _defaultUserIcon;
 
     private static readonly Dictionary<string, CharacterIconEntry> CharacterIcons = new(); //角色自带头像,按角色缓存
@@ -26,11 +29,11 @@ public class IconUtils
     /// <summary>应用图标。进程级缓存，调用方不得释放</summary>
     public static Bitmap? DefaultAppIcon => _defaultIcon ??= LoadDefaultBitmap("Icon.png");
 
-    /// <summary>默认角色头像 = 应用图标（花的五瓣图，任何主题下都不违和）。进程级缓存，调用方不得释放</summary>
-    public static Bitmap? DefaultCharIcon => DefaultAppIcon;
+    /// <summary>默认角色头像 = 花的五瓣图（任何主题下都不违和）。进程级缓存，调用方不得释放</summary>
+    public static Bitmap? DefaultCharIcon => _defaultCharIcon ??= LoadDefaultBitmap("Avatars/FlowerDefault.png");
 
-    /// <summary>默认工具人(智能体)头像 = 应用图标，与默认角色头像统一（旧的花环少女图与初春撞脸，不再使用）。进程级缓存，调用方不得释放</summary>
-    public static Bitmap? DefaultToolCharIcon => DefaultAppIcon;
+    /// <summary>默认工具人(智能体)头像 = 默认角色头像（花），与默认角色统一。进程级缓存，调用方不得释放</summary>
+    public static Bitmap? DefaultToolCharIcon => DefaultCharIcon;
 
     /// <summary>默认用户头像 = （用户卡没配头像时回落）。进程级缓存，调用方不得释放</summary>
     public static Bitmap? DefaultUserIcon => DefaultAppIcon; //_defaultUserIcon ??= LoadDefaultBitmap("Avatars/DefaultUser.png");
@@ -112,6 +115,26 @@ public class IconUtils
 
     /// <summary>Assets 下资源的统一 URI（前缀只在这里拼）</summary>
     public static Uri AssetUri(string fileName) => new("avares://UiharuMind/Assets/" + fileName);
+
+    /// <summary>
+    /// 窗口标题栏图标。从 Icon.ico 的<b>流</b>创建（而不是 Bitmap）：Windows 上
+    /// <c>WindowIcon(Bitmap)</c> 走 CreateIconIndirect，其 AND mask 只认 alpha==0 为透明，
+    /// 圆角那圈抗锯齿半透明像素会被拍平成不透明，观感退回直角；ICO 数据走
+    /// CreateIconFromResourceEx，alpha 原样保留，圆角才能显示。
+    /// </summary>
+    public static WindowIcon? CreateAppWindowIcon()
+    {
+        try
+        {
+            using Stream stream = AssetLoader.Open(AssetUri("Icon.ico"));
+            return new WindowIcon(stream);
+        }
+        catch (Exception e)
+        {
+            Log.Error(e);
+            return null;
+        }
+    }
 
     /// <summary>
     /// Assets 下的图片路径

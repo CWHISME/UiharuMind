@@ -24,6 +24,9 @@ public enum DefaultCharacter
     /// <summary>默认智能体(晨曦):新建智能体会话与定时任务会话默认用它</summary>
     ChenXiAgent,
 
+    /// <summary>默认智能体继任者(OP-01，即 RationalAgent 内容卡):替晨曦成为新建智能体会话与定时任务会话的默认角色</summary>
+    RationalAgent,
+
     /// <summary>匿名委派会话的身份载体(内部角色，提示词现拼)</summary>
     AnonymousAgent,
 

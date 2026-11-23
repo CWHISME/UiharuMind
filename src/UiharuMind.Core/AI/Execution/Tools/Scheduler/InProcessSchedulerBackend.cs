@@ -275,7 +275,7 @@ public class InProcessSchedulerBackend : ISchedulerBackend, IDisposable
 
         return new ChatSession
         {
-            CharacterId = nameof(DefaultCharacter.ChenXiAgent),
+            CharacterId = nameof(DefaultCharacter.RationalAgent),
             Title = $"⏰ {task.DisplayName}",
             Description = task.Prompt,
             WorkspacePath = task.WorkspacePath,

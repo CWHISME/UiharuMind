@@ -196,7 +196,7 @@ public partial class ConversationViewModel : ViewModelBase, IConversationItemAct
     }
 
     /// <summary>无会话时首轮发送创建新会话所用的角色;agent 页默认主代理,聊天页由页面壳指定</summary>
-    public string NewSessionCharacterId { get; set; } = nameof(DefaultCharacter.ChenXiAgent);
+    public string NewSessionCharacterId { get; set; } = nameof(DefaultCharacter.RationalAgent);
 
     /// <summary>
     /// 空态下新建会话的形态（ADR 0050）：由页面壳按左侧类型指定——普通对话侧恒为 false，
