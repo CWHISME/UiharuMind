@@ -64,7 +64,9 @@ internal static class McpHelpFormatter
 
         if (tools.Count > 0)
         {
-            sb.Append("\n用 ").Append(ExtensionCalls.HelpName).Append(" 传 `name`（扩展名.命令名）可查看某条命令的完整参数。");
+            sb.Append("\n调用 ").Append(ExtensionCalls.CallName).Append("：`name` 写 \"扩展名.命令名\"，`args` 只放该命令自己的参数，写成 JSON 对象——")
+              .Append("不要写成 JSON 字符串，也不要在 args 里再包一层 arguments。\n")
+              .Append("用 ").Append(ExtensionCalls.HelpName).Append(" 传 `name`（扩展名.命令名）可查看某条命令的完整参数与可照抄的示例。");
         }
 
         return sb.ToString().TrimEnd();
@@ -120,7 +122,42 @@ internal static class McpHelpFormatter
         sb.Append(tool.InputSchema.ValueKind == JsonValueKind.Undefined
             ? "{}"
             : ToolTokenEstimator.CompactSchema(tool.InputSchema));
+
+        // 模型反复把 args 写成字符串、或多包一层 arguments、或拿同义词当参数名；
+        // 在这里给一条可照抄的完整调用，比报错后再纠省事。参数名从 schema 取，不凭空造
+        IReadOnlyCollection<string>? names = PropertyNames(tool.InputSchema);
+        if (names is { Count: > 0 })
+        {
+            sb.Append("\n\n调用 ").Append(ExtensionCalls.CallName).Append("：")
+              .Append("`name` 写 ").Append(JsonSerializer.Serialize(serverName + "." + tool.Name))
+              .Append("，`args` 直接放下面的参数（JSON 对象，不要写成字符串，也不要再包一层 arguments；示例里的占位值换成真值）：\n")
+              .Append(ExtensionCalls.CorrectExample(serverName, tool.Name,
+                  names.ToDictionary(x => x, x => Placeholder(tool.InputSchema, x))));
+        }
+
         return sb.ToString();
+    }
+
+    /// <summary>示例里的占位值按 schema 类型给，模型照抄才不会因为类型不匹配被拒</summary>
+    private static JsonElement Placeholder(JsonElement schema, string name)
+    {
+        if (schema.TryGetProperty("properties", out JsonElement properties) &&
+            properties.ValueKind == JsonValueKind.Object &&
+            properties.TryGetProperty(name, out JsonElement property) &&
+            property.ValueKind == JsonValueKind.Object &&
+            property.TryGetProperty("type", out JsonElement type) && type.ValueKind == JsonValueKind.String)
+        {
+            return type.GetString() switch
+            {
+                "boolean" => JsonSerializer.SerializeToElement(true),
+                "integer" or "number" => JsonSerializer.SerializeToElement(0),
+                "array" => JsonSerializer.SerializeToElement(Array.Empty<object>()),
+                "object" => JsonSerializer.SerializeToElement(new Dictionary<string, object>()),
+                _ => JsonSerializer.SerializeToElement("..."),
+            };
+        }
+
+        return JsonSerializer.SerializeToElement("...");
     }
 
     /// <summary>

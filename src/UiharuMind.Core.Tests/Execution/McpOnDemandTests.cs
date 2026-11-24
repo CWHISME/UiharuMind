@@ -50,11 +50,41 @@ public class McpOnDemandTests : IDisposable
     }
 
     [Fact]
+    public void ReadObject_RepairsJsonStringMissingClosingBrace()
+    {
+        // 实机样本：模型把 args 写成 JSON 字符串，且 3 个 { 只给了 2 个 }
+        string broken = "{\"arguments\": {\"script\": {\"content\": \"print(1)\"}}";
+        AIFunctionArguments arguments = new() { ["args"] = broken };
+
+        Dictionary<string, JsonElement>? read = ExtensionCalls.ReadObject(arguments, "args");
+
+        Assert.NotNull(read);
+        Assert.Equal("print(1)", read!["arguments"].GetProperty("script").GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public void CorrectExample_KeepsNonAsciiLiteral_AndStaysValidJson()
+    {
+        Dictionary<string, JsonElement> arguments = new()
+        {
+            ["路径"] = JsonSerializer.SerializeToElement("中文.txt"),
+        };
+
+        string example = ExtensionCalls.CorrectExample("audio", "transcribe", arguments);
+
+        Assert.DoesNotContain("\\u", example);
+        using JsonDocument parsed = JsonDocument.Parse(example);
+        Assert.Equal("中文.txt", parsed.RootElement.GetProperty("args").GetProperty("路径").GetString());
+    }
+
+    [Fact]
     public void ReadObject_GarbageOrMissing_IsNullNotAnException()
     {
         Assert.Null(ExtensionCalls.ReadObject(new AIFunctionArguments { ["arguments"] = "not json" }, "arguments"));
         Assert.Null(ExtensionCalls.ReadObject(new AIFunctionArguments(), "arguments"));
         Assert.Null(ExtensionCalls.ReadObject(new AIFunctionArguments { ["arguments"] = 42 }, "arguments"));
+        // 补括号也救不回来的字符串仍返回 null，不硬塞给下游
+        Assert.Null(ExtensionCalls.ReadObject(new AIFunctionArguments { ["args"] = "{\"a\":1]" }, "args"));
     }
 
     [Fact]

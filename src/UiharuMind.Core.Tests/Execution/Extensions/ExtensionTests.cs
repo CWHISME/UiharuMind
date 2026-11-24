@@ -83,6 +83,21 @@ public class ExtensionTests
         Assert.Equal(Describe(ExtensionMetaTools.Create(Hub())), Describe(ExtensionMetaTools.Create(Hub(Echo()))));
     }
 
+    /// <summary>定义恒定，但写法纪律必须写在 schema 里：模型生成调用时只看 tools 数组</summary>
+    [Fact]
+    public void CallSchema_CarriesTheArgumentWritingDiscipline()
+    {
+        AIFunction call = (AIFunction)ExtensionMetaTools.Create(Hub()).Single(x => x.Name == ExtensionCalls.CallName);
+
+        JsonElement args = call.JsonSchema.GetProperty("properties").GetProperty("args");
+        string description = args.GetProperty("description").GetString() ?? "";
+
+        Assert.Contains("JSON 对象而不是 JSON 字符串", description);
+        Assert.Contains("不要多包一层 arguments", description);
+        Assert.Contains("参数名照", description);
+        Assert.Equal("object", args.GetProperty("type").GetString());
+    }
+
     /// <summary>帮助不审批；调用一律经审批中间件，放不放交给逐条的规则</summary>
     [Fact]
     public void OnlyTheCallIsBehindApproval()
@@ -560,6 +575,95 @@ public class ExtensionTests
             out ExtensionInvocation? invocation));
         Assert.Equal(("audio", "transcribe", "a.wav"),
             (invocation.Extension, invocation.Command, invocation.Arguments!["path"].GetString()));
+    }
+
+    /// <summary>失败回显给的是可照抄的调用：name 用本次命令，args 明确写成对象，而不是只说规则</summary>
+    [Fact]
+    public async Task FailureEcho_GivesCopyableExample_WithTheResolvedCommand()
+    {
+        AIFunction call = (AIFunction)ExtensionMetaTools.Create(Hub(Echo())).Single(x => x.Name == ExtensionCalls.CallName);
+        AIFunctionArguments arguments = new()
+        {
+            ["name"] = "audio.transcribe",
+            ["args"] = "{\"path\":", // 连补括号都救不回来的坏串
+        };
+
+        string text = Assert.IsType<string>(await call.InvokeAsync(arguments, TestContext.Current.CancellationToken));
+
+        Assert.Contains("audio.transcribe", text);
+        Assert.Contains("骨架", text);
+        Assert.Contains("ExHelp", text);
+        int start = text.IndexOf('{');
+        using JsonDocument example = JsonDocument.Parse(text.Substring(start, text.LastIndexOf('}') - start + 1));
+        Assert.Equal("audio.transcribe", example.RootElement.GetProperty("name").GetString());
+        Assert.Equal(JsonValueKind.Object, example.RootElement.GetProperty("args").ValueKind);
+    }
+
+    /// <summary>帮助详情带一段可照抄的调用：参数名来自 schema，args 是对象而非字符串</summary>
+    [Fact]
+    public async Task HelpDetail_ShowsCopyableCall_UsingSchemaParameterNames()
+    {
+        string detail = await Hub(Echo()).HelpAsync("audio", "transcribe", TestContext.Current.CancellationToken);
+
+        Assert.Contains("ExCall", detail);
+        Assert.Contains("不要写成字符串", detail);
+
+        // 从示例行起解析：示例必须是合法 JSON，且占位值类型跟 schema 对得上（bool 不能是字符串）
+        int start = detail.IndexOf("{\"name\":", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        using JsonDocument example = JsonDocument.Parse(detail[start..]);
+        Assert.Equal("audio.transcribe", example.RootElement.GetProperty("name").GetString());
+        JsonElement args = example.RootElement.GetProperty("args");
+        Assert.Equal(JsonValueKind.String, args.GetProperty("path").ValueKind);
+        Assert.Equal(JsonValueKind.True, args.GetProperty("subtitles").ValueKind);
+    }
+
+    /// <summary>args 写成漏了右括号的 JSON 字符串：补好后照样执行，并把写法纠正回显给模型</summary>
+    [Fact]
+    public async Task StringArgsMissingBrace_AreRepaired_AndExecuted()
+    {
+        AIFunction call = (AIFunction)ExtensionMetaTools.Create(Hub(Echo())).Single(x => x.Name == ExtensionCalls.CallName);
+        // 少了一个结尾的 }：{"path": "a.wav"
+        AIFunctionArguments arguments = new()
+        {
+            ["name"] = "audio.transcribe",
+            ["args"] = "{\"path\": \"a.wav\"",
+        };
+
+        string text = Assert.IsType<string>(await call.InvokeAsync(arguments, TestContext.Current.CancellationToken));
+
+        Assert.Contains("已尝试从字符串里解析参数", text);
+        Assert.Contains("heard a.wav", text);
+    }
+
+    /// <summary>字符串写法救回参数，但命令本身失败：纠正提示不能顺带声称执行成功</summary>
+    [Fact]
+    public async Task StringArgsWithFailingCommand_DoNotClaimSuccess()
+    {
+        AIFunction call = (AIFunction)ExtensionMetaTools.Create(Hub(Echo())).Single(x => x.Name == ExtensionCalls.CallName);
+        AIFunctionArguments arguments = new()
+        {
+            ["name"] = "audio.transcribe",
+            ["args"] = "{}", // 合法对象字符串，但缺必填 path -> Hub 返回"无效参数"
+        };
+
+        string text = Assert.IsType<string>(await call.InvokeAsync(arguments, TestContext.Current.CancellationToken));
+
+        Assert.Contains("无效参数", text);
+        Assert.DoesNotContain("继续执行", text);
+    }
+
+    /// <summary>参数补好了但没有 name：没执行命令就不能说"已继续执行"</summary>
+    [Fact]
+    public async Task RepairedStringArgsWithoutName_DoNotClaimExecution()
+    {
+        AIFunction call = (AIFunction)ExtensionMetaTools.Create(Hub(Echo())).Single(x => x.Name == ExtensionCalls.CallName);
+        AIFunctionArguments arguments = new() { ["args"] = "{\"path\": \"a.wav\"" };
+
+        string text = Assert.IsType<string>(await call.InvokeAsync(arguments, TestContext.Current.CancellationToken));
+
+        Assert.DoesNotContain("继续执行", text);
+        Assert.Contains("`name` 必填", text);
     }
 
     /// <summary>内层没有 arguments 时，除扩展名、命令名之外的字段就是参数；只有参数没有命令的照常报错</summary>

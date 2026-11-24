@@ -37,11 +37,11 @@ internal static class ExtensionMetaTools
           "properties": {
             "name": {
               "type": "string",
-              "description": "扩展名.命令名，如 browser.snapshot，与 {{ExtensionCalls.HelpName}} 显示的完全一致。"
+              "description": "扩展名.命令名，如 browser.snapshot，与 {{ExtensionCalls.HelpName}} 显示的完全一致；只放这一个名字，不把参数写进来。"
             },
             "args": {
               "type": "object",
-              "description": "只放该命令自己的参数，JSON 对象；无参数的命令可省略。",
+              "description": "只放该命令自己的参数，写成 JSON 对象而不是 JSON 字符串，参数名照 {{ExtensionCalls.HelpName}} 查到的签名；不要多包一层 arguments，不要把参数写成同义词（ref/text）。无参数的命令可省略。",
               "additionalProperties": true
             }
           },
@@ -82,18 +82,31 @@ internal static class ExtensionMetaTools
         CancellationToken cancellationToken)
     {
         ExtensionCallParts parts = ExtensionCalls.ReadParts(arguments);
+        bool argsWrittenAsString = IsStringValue(arguments, ExtensionCalls.ArgsKey) ||
+                                   IsStringValue(arguments, "arguments");
         if (parts.Arguments == null && !parts.Unwrapped &&
             (HasValue(arguments, ExtensionCalls.ArgsKey) || HasValue(arguments, "arguments")))
         {
-            return "参数 `args` 必须是 JSON 对象，如 {\"url\": \"https://example.com\"}。什么都没运行。";
+            // 只回显能确定的部分：name 拆得出就用本次命令，拆不出给通用样例；绝不拿坏参数拼一个假样例
+            string example = ExtensionCalls.CorrectExample(parts.Extension, parts.Command, null);
+            string where = parts.Extension is { Length: > 0 } && parts.Command is { Length: > 0 }
+                ? $"用 {ExtensionCalls.HelpName} 传 name \"{parts.Extension}.{parts.Command}\" 查到参数名后填进 args。"
+                : $"先用 {ExtensionCalls.HelpName} 查到命令和参数名。";
+            return argsWrittenAsString
+                ? $"参数 `args` 应是 JSON 对象，不是 JSON 字符串；这次的字符串解析失败（常见原因是漏了结尾的右花括号）。骨架：{example}；{where}什么都没运行。"
+                : $"参数 `args` 必须是 JSON 对象。骨架：{example}；{where}什么都没运行。";
         }
 
         object? result = await hub.CallAsync(parts.Extension, parts.Command, parts.Arguments, cancellationToken)
             .ConfigureAwait(false);
-        if (!parts.Unwrapped) return result;
+        // name 拆不出时 Hub 什么都没跑；这里只认"名字解析出来了"，不对执行结果做任何断言
+        bool nameResolved = !string.IsNullOrWhiteSpace(parts.Extension) && !string.IsNullOrWhiteSpace(parts.Command);
+        if (!parts.Unwrapped && !(argsWrittenAsString && nameResolved)) return result;
 
-        // 照做了，但要让模型知道写法错了，下次写对
-        string notice = $"（注意：`name` 应放在顶层、`args` 只装命令自己的参数，这次已按 {parts.Extension}.{parts.Command} 理解。）\n";
+        // 让模型知道写法错了，下次写对；措辞不涉及"是否执行成功"——Hub 的失败另有文案
+        string notice = parts.Unwrapped
+            ? $"（注意：`name` 应放在顶层、`args` 只装命令自己的参数，这次已按 {parts.Extension}.{parts.Command} 理解。）\n"
+            : "（注意：`args` 应是 JSON 对象而不是 JSON 字符串；这次已尝试从字符串里解析参数，下次请直接写对象。）\n";
         return result switch
         {
             string text => notice + text,
@@ -111,6 +124,14 @@ internal static class ExtensionMetaTools
             string text => text.Trim().Length > 0,
             JsonElement { ValueKind: JsonValueKind.Null or JsonValueKind.Undefined } => false,
             _ => true,
+        };
+
+    private static bool IsStringValue(AIFunctionArguments arguments, string key) =>
+        arguments.TryGetValue(key, out object? value) && value switch
+        {
+            string text => !string.IsNullOrWhiteSpace(text),
+            JsonElement { ValueKind: JsonValueKind.String } element => !string.IsNullOrWhiteSpace(element.GetString()),
+            _ => false,
         };
 
     /// <summary>固定 schema 的 AIFunction：名字、描述、参数定义在构造时一次定死</summary>

@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using UiharuMind.Core.AI.Execution.Tools;
@@ -39,6 +40,12 @@ public sealed record ExtensionCallParts(string? Extension, string? Command,
 /// </summary>
 public static class ExtensionCalls
 {
+    // 给模型看的 JSON 不转义中文：<c>CompactSchema</c>等同款约定，照抄时不会被 \uXXXX 绊住
+    private static readonly JsonSerializerOptions ExampleJson = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
     /// <summary>查询工具名。提示词里提到它时一律引用这个常量</summary>
     public const string HelpName = "ExHelp";
 
@@ -112,6 +119,26 @@ public static class ExtensionCalls
     /// <returns>扩展名与命令名，没给的为 null</returns>
     public static (string? Extension, string? Command) ReadHelpTarget(IDictionary<string, object?> arguments) =>
         ReadName(arguments);
+
+    /// <summary>
+    /// 把一次调用按正确写法回显给模型照抄。<c>name</c> 用拆出的全名，<c>args</c> 用拆出的参数对象；
+    /// 都取自 <see cref="ReadParts"/> 的同一份结果，错误反馈不与审批、执行分叉
+    /// </summary>
+    /// <param name="extension">扩展名</param>
+    /// <param name="command">命令名</param>
+    /// <param name="arguments">拆出的参数</param>
+    /// <returns>可照抄的调用 JSON；扩展名或命令名缺失时退回通用示例</returns>
+    public static string CorrectExample(string? extension, string? command, IReadOnlyDictionary<string, JsonElement>? arguments)
+    {
+        if (string.IsNullOrWhiteSpace(extension) || string.IsNullOrWhiteSpace(command)) return BuiltinExtensions.CallExample;
+        string name = extension + "." + command;
+        if (arguments == null || arguments.Count == 0) return $"{{\"name\": {JsonSerializer.Serialize(name)}, \"args\": {{}}}}";
+
+        // 值原样带出：让模型看到自己传的东西被结构化为对象是什么样子，比抽象的"应写对象"好照抄
+        Dictionary<string, JsonElement> shown = arguments.ToDictionary(x => x.Key, x => x.Value);
+        string args = JsonSerializer.Serialize(shown, ExampleJson);
+        return $"{{\"name\": {JsonSerializer.Serialize(name, ExampleJson)}, \"args\": {args}}}";
+    }
 
     /// <summary>参数对象的键名</summary>
     public const string ArgsKey = "args";
@@ -209,16 +236,18 @@ public static class ExtensionCalls
                 element = json;
                 break;
             case string text when text.Length > 0:
-                try
+                if (TryParseJson(text, out element)) break;
+                // 模型常把 args 写成字符串，还漏掉结尾的 `}`；只补右花括号，最多两个
+                if (!text.TrimStart().StartsWith('{')) return null;
+                string patched = text;
+                bool repaired = false;
+                for (int i = 0; i < 2 && !repaired; i++)
                 {
-                    using JsonDocument document = JsonDocument.Parse(text);
-                    element = document.RootElement.Clone();
-                }
-                catch (JsonException)
-                {
-                    return null;
+                    patched += "}";
+                    repaired = TryParseJson(patched, out element);
                 }
 
+                if (!repaired) return null;
                 break;
             case IDictionary<string, object?> map:
                 element = JsonSerializer.SerializeToElement(map, ToolJson.Arguments);
@@ -237,5 +266,20 @@ public static class ExtensionCalls
         Dictionary<string, JsonElement> result = new();
         foreach (JsonProperty property in element.EnumerateObject()) result[property.Name] = property.Value.Clone();
         return result;
+    }
+
+    private static bool TryParseJson(string text, out JsonElement element)
+    {
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(text);
+            element = document.RootElement.Clone();
+            return true;
+        }
+        catch (JsonException)
+        {
+            element = default;
+            return false;
+        }
     }
 }
