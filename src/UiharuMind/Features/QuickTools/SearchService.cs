@@ -28,7 +28,9 @@ public record LayerListing(List<SearchItem> Items, SearchFailure? Failure, strin
 /// <param name="Items">命中条目</param>
 /// <param name="Failure">搜索器给出的失败原因；成功则为 null</param>
 /// <param name="ErrorDetail">意外异常的说明；没有则为 null</param>
-public record SearchOutcome(List<SearchItem> Items, SearchFailure? Failure, string? ErrorDetail);
+/// <param name="ReachedLimit">内容搜索命中数是否达引擎上限；文件名搜索恒为 false</param>
+public record SearchOutcome(List<SearchItem> Items, SearchFailure? Failure, string? ErrorDetail,
+    bool ReachedLimit = false);
 
 public class SearchService
 {
@@ -146,7 +148,7 @@ public class SearchService
                     r.MatchingLines.FirstOrDefault()?.LineNumber ?? 0,
                     TruncateSnippet(r.Snippet),
                     true
-                )).ToList(), null, null);
+                )).ToList(), null, null, grep.ReachedLimit);
             }
 
             // 递归搜（浏览器化保留的全树能力）：pattern 相对、根由 path 指定，命中从 searchRoot 向下递归

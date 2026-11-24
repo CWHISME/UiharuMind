@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text;
+using Glacier.Grep;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.Files;
@@ -264,6 +265,12 @@ internal static class GrepResultShaper
         {
             parts.Add($"模式已归一化为 \"{outcome.EffectiveQuery}\"——"
                       + "前导通配符的意思是「任意内容」。");
+        }
+
+        if (outcome.ReachedLimit)
+        {
+            parts.Add($"命中数已达单次上限（{SearchEngine.DefaultMaxResults}），结果不完整——"
+                      + "用更具体的表达式，或用 path 缩小目录再搜。");
         }
 
         return parts;

@@ -268,6 +268,8 @@ public partial class SearchViewModel : ViewModelBase
             StatusMessage = count > MaxResults
                 ? string.Format(Loc.Text(LangKey.FileSearchStatusResultFormat), count) + $" (top {MaxResults})"
                 : string.Format(Loc.Text(LangKey.FileSearchStatusResultFormat), count);
+            // 引擎命中上限会腰斩结果,不写出来用户会以为搜全了——与工具侧同理
+            if (outcome.ReachedLimit) StatusMessage += Loc.Text(LangKey.FileSearchStatusLimitReached);
         }
         catch (OperationCanceledException)
         {

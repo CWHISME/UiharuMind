@@ -18,6 +18,7 @@ using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
 using UiharuMind.Core.AI.Character;
 using UiharuMind.Core.AI.Chat;
+using UiharuMind.Features.Diagnostics;
 using UiharuMind.Core.AI.Chat.Group.Away;
 using UiharuMind.Features.Conversation;
 using UiharuMind.Features.Conversation.Pages;
@@ -247,7 +248,7 @@ internal sealed class MemoryStatsCommand : IDevCommand
 {
     public string Name => "diag.memory";
 
-    public string Usage => "内存与驻留：托管堆、活对象、加载的会话与常驻历史。collect（true 时先强制回收）";
+    public string Usage => "内存与驻留：托管堆、活对象、加载的会话、常驻历史、回收器两条通道次数与硬水位余量。collect（true 时先强制回收）";
 
     public JsonNode? Execute(JsonElement args)
     {
@@ -272,6 +273,11 @@ internal sealed class MemoryStatsCommand : IDevCommand
             ["loadedSessions"] = SessionManager.Instance.LoadedSessionCount,
             ["residentHistories"] = SessionManager.Instance.ResidentHistoryCount,
             ["gen2Collections"] = GC.CollectionCount(2),
+            // 回收器两条通道的触发次数与水位余量：验证硬水位是否真的介入过，以及还有多远到线
+            ["softReclaims"] = IdleMemoryReclaimer.SoftReclaimCount,
+            ["compactReclaims"] = IdleMemoryReclaimer.CompactReclaimCount,
+            ["hardWatermarkMb"] = Math.Round(IdleMemoryReclaimer.HardWatermark / 1048576.0, 1),
+            ["committedToWatermark"] = Math.Round(info.TotalCommittedBytes / (double)IdleMemoryReclaimer.HardWatermark, 2),
             ["desktopSnapshotStates"] = DevJson.Counts(UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.DesktopSnapshotStateCount),
             ["desktopAppGates"] = UiharuMind.Core.AI.Execution.Tools.Desktop.DesktopHost.Shared.AppGateCount,
         };

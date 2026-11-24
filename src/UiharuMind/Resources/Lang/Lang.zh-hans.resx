@@ -2340,6 +2340,9 @@
     <data name="FileSearchStatusCancelled" xml:space="preserve">
         <value>已取消</value>
     </data>
+    <data name="FileSearchStatusLimitReached" xml:space="preserve">
+        <value> · 已达上限，请缩小范围</value>
+    </data>
     <data name="FileSearchAutoSearch" xml:space="preserve">
         <value>自动搜索</value>
     </data>

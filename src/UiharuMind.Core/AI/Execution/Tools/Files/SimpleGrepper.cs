@@ -170,6 +170,8 @@ public sealed class SimpleGrepper
         try
         {
             List<SearchResult> matches;
+            // 多要一条用来判截断：返回数超过上限才说明真的撞顶了，恰好等于上限不算
+            const int maxResults = SearchEngine.DefaultMaxResults;
             await EngineGate.WaitAsync(ct).ConfigureAwait(false);
             try
             {
@@ -182,25 +184,32 @@ public sealed class SimpleGrepper
                     maxDepth: maxDepth,
                     fileGlobs: effectiveFileGlobs,
                     ignoreBoundary: ignoreBoundary,
-                    cancellationToken: ct).ConfigureAwait(false);
+                    cancellationToken: ct,
+                    maxResults: maxResults + 1,
+                    exactFilePath: isFileScope ? Path.GetFullPath(target) : null).ConfigureAwait(false);
             }
             finally
             {
                 EngineGate.Release();
             }
 
+            // 引擎已按 exactFilePath 在枚举阶段过滤，同名文件不会吃配额。这里再滤一次作防御
+            // （路径大小写口径与引擎一致），保证即便引擎返回多余条目也不会串进目标文件结果。
+            if (isFileScope)
+            {
+                matches.RemoveAll(match => !string.Equals(
+                    Path.GetFullPath(Path.Combine(searchRoot, match.FilePath)), Path.GetFullPath(target),
+                    StringComparison.OrdinalIgnoreCase));
+            }
+
+            bool reachedLimit = matches.Count > maxResults;
+            if (reachedLimit) matches.RemoveRange(maxResults, matches.Count - maxResults);
+
             var results = new List<GrepMatchResult>(matches.Count);
             foreach (SearchResult match in matches)
             {
                 ct.ThrowIfCancellationRequested();
                 string absolute = Path.Combine(searchRoot, match.FilePath);
-                if (isFileScope
-                    // macOS 默认文件系统大小写不敏感,同源路径比较用忽略大小写
-                    && !string.Equals(Path.GetFullPath(absolute), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 results.Add(new GrepMatchResult
                 {
                     // 引擎回的是相对搜索根的路径,换算成相对工作区——否则缩了 path 之后
@@ -216,6 +225,7 @@ public sealed class SimpleGrepper
                 Matches = results,
                 ResolvedDirectory = target,
                 FellBackToLiteral = fellBack,
+                ReachedLimit = reachedLimit,
                 EffectiveQuery = effective,
             };
         }

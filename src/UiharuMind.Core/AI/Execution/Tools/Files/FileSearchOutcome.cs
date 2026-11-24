@@ -136,6 +136,15 @@ public sealed class GrepOutcome
     /// <summary>失败原因；成功则为 null</summary>
     public SearchFailure? Failure { get; init; }
 
+    /// <summary>
+    /// 命中数达到引擎上限，结果被截断。
+    /// <para>
+    /// 这个标志<b>必须告诉模型</b>：否则它以为搜全了，会对"为什么没找到某文件"得出错误结论。
+    /// 触发条件通常是搜索范围过宽（如在整个项目里搜常见标识符），应引导它缩小 path。
+    /// </para>
+    /// </summary>
+    public bool ReachedLimit { get; init; }
+
     /// <summary>实际搜索的根目录绝对路径</summary>
     public string ResolvedDirectory { get; init; } = string.Empty;
 

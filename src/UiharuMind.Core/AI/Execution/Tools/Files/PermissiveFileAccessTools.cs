@@ -229,13 +229,15 @@ internal sealed class PermissiveFileAccessTools
         bool filesOnly = false,
         CancellationToken ct = default)
     {
+        // 上限 8：上下文按命中数放大（1 万命中 × 16 行 × 行长），不 clamp 仍能撑爆内存
+        int effectiveContext = filesOnly ? 0 : Math.Clamp(contextLines, 0, 8);
         GrepOutcome outcome = await _grepper
-            .SearchAsync(pattern, isRegex, caseSensitive, filesOnly ? 0 : contextLines, maxDepth: null, fileGlobs, path,
+            .SearchAsync(pattern, isRegex, caseSensitive, effectiveContext, maxDepth: null, fileGlobs, path,
                 ct)
             .ConfigureAwait(false);
         return GrepResultShaper.Shape(outcome, pattern, filesOnly,
             file => _paths.TryResolve(file, out string full, out _) ? FileOutline.ExtractFile(full) : null,
-            contextLines);
+            effectiveContext);
     }
 
     // 生效的是 CreateFunction 传进去的 ReadDescription（覆盖这里）；这里只为本地阅读，
