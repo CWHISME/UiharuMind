@@ -129,35 +129,49 @@ internal static class McpHelpFormatter
         if (names is { Count: > 0 })
         {
             sb.Append("\n\n调用 ").Append(ExtensionCalls.CallName).Append("：")
-              .Append("`name` 写 ").Append(JsonSerializer.Serialize(serverName + "." + tool.Name))
-              .Append("，`args` 直接放下面的参数（JSON 对象，不要写成字符串，也不要再包一层 arguments；示例里的占位值换成真值）：\n")
+              .Append("`name` 写 \"").Append(serverName).Append('.').Append(tool.Name).Append("\"")
+              .Append("，`args` 直接放下面的参数（JSON 对象，不要写成字符串，也不需要再包一层 arguments；示例里的占位值换成真值）：\n")
               .Append(ExtensionCalls.CorrectExample(serverName, tool.Name,
-                  names.ToDictionary(x => x, x => Placeholder(tool.InputSchema, x))));
+                  (writer, key) => WritePlaceholder(writer, tool.InputSchema, key), names));
         }
 
         return sb.ToString();
     }
 
-    /// <summary>示例里的占位值按 schema 类型给，模型照抄才不会因为类型不匹配被拒</summary>
-    private static JsonElement Placeholder(JsonElement schema, string name)
+    /// <summary>示例里的占位值按 schema 类型给，模型照抄才不会因为类型不匹配被拒；直接写 writer，不反射</summary>
+    private static void WritePlaceholder(Utf8JsonWriter writer, JsonElement schema, string name)
     {
+        string? type = null;
         if (schema.TryGetProperty("properties", out JsonElement properties) &&
             properties.ValueKind == JsonValueKind.Object &&
             properties.TryGetProperty(name, out JsonElement property) &&
             property.ValueKind == JsonValueKind.Object &&
-            property.TryGetProperty("type", out JsonElement type) && type.ValueKind == JsonValueKind.String)
+            property.TryGetProperty("type", out JsonElement element) && element.ValueKind == JsonValueKind.String)
         {
-            return type.GetString() switch
-            {
-                "boolean" => JsonSerializer.SerializeToElement(true),
-                "integer" or "number" => JsonSerializer.SerializeToElement(0),
-                "array" => JsonSerializer.SerializeToElement(Array.Empty<object>()),
-                "object" => JsonSerializer.SerializeToElement(new Dictionary<string, object>()),
-                _ => JsonSerializer.SerializeToElement("..."),
-            };
+            type = element.GetString();
         }
 
-        return JsonSerializer.SerializeToElement("...");
+        switch (type)
+        {
+            case "boolean":
+                writer.WriteBooleanValue(true);
+                break;
+            case "integer":
+            case "number":
+                writer.WriteNumberValue(0);
+                break;
+            case "array":
+                writer.WriteStartArray();
+                writer.WriteEndArray();
+                break;
+            case "object":
+                writer.WriteStartObject();
+                writer.WriteEndObject();
+                break;
+            default:
+                writer.WriteStringValue("...");
+                break;
+        }
     }
 
     /// <summary>

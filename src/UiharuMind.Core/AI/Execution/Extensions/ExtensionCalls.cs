@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
@@ -40,8 +41,9 @@ public sealed record ExtensionCallParts(string? Extension, string? Command,
 /// </summary>
 public static class ExtensionCalls
 {
-    // 给模型看的 JSON 不转义中文：<c>CompactSchema</c>等同款约定，照抄时不会被 \uXXXX 绊住
-    private static readonly JsonSerializerOptions ExampleJson = new()
+    // 给模型看的 JSON 不转义中文：<c>CompactSchema</c> 同款约定，照抄时不会被 \uXXXX 绊住。
+    // 走 Utf8JsonWriter 手写而非 JsonSerializer：后者在 AOT/Trim 分析器下报 IL2026/IL3050
+    private static readonly JsonWriterOptions ExampleWriter = new()
     {
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
@@ -128,16 +130,46 @@ public static class ExtensionCalls
     /// <param name="command">命令名</param>
     /// <param name="arguments">拆出的参数</param>
     /// <returns>可照抄的调用 JSON；扩展名或命令名缺失时退回通用示例</returns>
-    public static string CorrectExample(string? extension, string? command, IReadOnlyDictionary<string, JsonElement>? arguments)
+    public static string CorrectExample(string? extension, string? command, IReadOnlyDictionary<string, JsonElement>? arguments) =>
+        CorrectExample(extension, command, arguments == null
+            ? null
+            : (writer, key) => arguments[key].WriteTo(writer), arguments?.Keys);
+
+    /// <summary>
+    /// <see cref="CorrectExample(string?,string?,IReadOnlyDictionary{string,JsonElement})"/> 的可写入版本：
+    /// 帮助文本按 schema 类型生成占位值时用，避免为造 <see cref="JsonElement"/> 走反射序列化
+    /// </summary>
+    /// <param name="extension">扩展名</param>
+    /// <param name="command">命令名</param>
+    /// <param name="writeValue">写一个参数的值</param>
+    /// <param name="keys">参数名；null 表示无参数</param>
+    /// <returns>可照抄的调用 JSON</returns>
+    public static string CorrectExample(string? extension, string? command,
+        Action<Utf8JsonWriter, string>? writeValue, IEnumerable<string>? keys)
     {
         if (string.IsNullOrWhiteSpace(extension) || string.IsNullOrWhiteSpace(command)) return BuiltinExtensions.CallExample;
-        string name = extension + "." + command;
-        if (arguments == null || arguments.Count == 0) return $"{{\"name\": {JsonSerializer.Serialize(name)}, \"args\": {{}}}}";
 
-        // 值原样带出：让模型看到自己传的东西被结构化为对象是什么样子，比抽象的"应写对象"好照抄
-        Dictionary<string, JsonElement> shown = arguments.ToDictionary(x => x.Key, x => x.Value);
-        string args = JsonSerializer.Serialize(shown, ExampleJson);
-        return $"{{\"name\": {JsonSerializer.Serialize(name, ExampleJson)}, \"args\": {args}}}";
+        using MemoryStream stream = new();
+        using (Utf8JsonWriter writer = new(stream, ExampleWriter))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("name", extension + "." + command);
+            writer.WritePropertyName("args");
+            writer.WriteStartObject();
+            if (writeValue != null && keys != null)
+            {
+                foreach (string key in keys)
+                {
+                    writer.WritePropertyName(key);
+                    writeValue(writer, key);
+                }
+            }
+
+            writer.WriteEndObject();
+            writer.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(stream.ToArray());
     }
 
     /// <summary>参数对象的键名</summary>
