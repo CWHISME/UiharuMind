@@ -27,14 +27,14 @@ public enum ESubAgentType
 
     /// <summary>
     /// 脑（ADR 0082）：同步、有界、只读的小模型整理助手。恒定只读，配脑模型
-    /// （<c>AgentSettingConfig.BrainSubAgentModelName</c>），只挂 Grep/Read。
+    /// （<c>AgentSettingConfig.BrainSubAgentModelNames</c>，可配多个、派活依次取用），只挂 Grep/Read。
     /// 任务是整理/总结大文件与被截断的工具结果，可被追问。
     /// </summary>
     Brain,
 
     /// <summary>
     /// 探索档：异步后台、恒定只读的子代理，配探索模型（
-    /// <c>AgentSettingConfig.ExplorerSubAgentModelName</c>），挂只读文件工具（含 Glob）与联网。
+    /// <c>AgentSettingConfig.ExplorerSubAgentModelNames</c>，同样可配多个），挂只读文件工具（含 Glob）与联网。
     /// 曾因 ADR 0044 归一委派而退役为墓碑，现复活为独立档：区别于脑（同步、有界、整理），
     /// 探索是开放、后台的调研/审阅。存量已确认无残留，枚举字符串值延续以便导入旧盘。
     /// </summary>
@@ -86,17 +86,26 @@ public sealed record SubAgentProfile
 
     /// <summary>
     /// 各类型子代理用各自配置的模型,未配置时回退到主代理模型。
+    ///
+    /// <b>返回的是一份候选名单而不只是一个名字</b>:同一档可以配多个模型,派活依次取用
+    /// （<see cref="SubAgentModelRotation"/>，ADR 0111）——主代理一轮里连着派出几个子代理时，
+    /// 全落在同一个模型上会撞供应商的并发限额，表现就是「一委派就卡」。
     /// </summary>
     /// <param name="config">全局 agent 设置</param>
-    /// <returns>模型名；空串表示用主代理模型</returns>
-    public string ResolveModelName(AgentSettingConfig config)
+    /// <returns>候选模型名的<b>快照</b>，按用户配置顺序；空列表表示用主代理模型</returns>
+    public IReadOnlyList<string> ResolveModelNames(AgentSettingConfig config)
     {
-        return Type switch
+        List<string> names = Type switch
         {
-            ESubAgentType.Brain => config.BrainSubAgentModelName,
-            ESubAgentType.Explorer => config.ExplorerSubAgentModelName,
-            _ => config.GeneralSubAgentModelName,
+            ESubAgentType.Brain => config.BrainSubAgentModelNames,
+            ESubAgentType.Explorer => config.ExplorerSubAgentModelNames,
+            _ => config.GeneralSubAgentModelNames,
         };
+
+        // 拷贝一份再交出去：写方（设置页、旧档迁移）都是换实例，所以拷到的一定是
+        // 一个发布后就不再变的列表。这条安全靠的是那个约定——ToArray 本身不是原子的，
+        // 真有人在原地增删的话这里仍可能抛或读到中间态。拷贝只是多一层兜底
+        return names.ToArray();
     }
 
     /// <summary>通用策略：新派出去的一律是这一档</summary>

@@ -579,19 +579,19 @@ Hit rate = cached input / reported input. The row above is the session total, wi
         <value>General sub-agent model</value>
     </data>
     <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
-        <value>General sub-agents do actual modification tasks. Pick a model to run them on; leave empty to fall back to the main agent's model.</value>
+        <value>General sub-agents do actual modification tasks. Pick the model(s) to run them on; leave empty to fall back to the main agent's model. Multiple picks are allowed: when the main agent sends out several sub-agents at once, they take the models in the order you picked them instead of queueing up on one model.</value>
     </data>
     <data name="AgentSettingBrainSubAgentModel" xml:space="preserve">
         <value>Summary model</value>
     </data>
     <data name="AgentSettingBrainSubAgentModelDesc" xml:space="preserve">
-        <value>Brains summarize large files and truncated tool results with a read-only helper. Pick a small model to run them on; leave empty to fall back to the main agent's model.</value>
+        <value>Brains summarize large files and truncated tool results with a read-only helper. Pick a small model to run them on; leave empty to fall back to the main agent's model. Multiple picks are allowed: concurrent brains take them in the order you picked.</value>
     </data>
     <data name="AgentSettingExplorerSubAgentModel" xml:space="preserve">
         <value>Explorer model</value>
     </data>
     <data name="AgentSettingExplorerSubAgentModelDesc" xml:space="preserve">
-        <value>Explorers are read-only research/review helpers. Pick a model to run them on; leave empty to fall back to the main agent's model.</value>
+        <value>Explorers are read-only research/review helpers. Pick a model to run them on; leave empty to fall back to the main agent's model. Multiple picks are allowed: concurrent explorers take them in the order you picked.</value>
     </data>
     <data name="AgentSettingMemoryIndexBudget" xml:space="preserve">
         <value>Memory list size limit</value>
@@ -599,8 +599,8 @@ Hit rate = cached input / reported input. The row above is the session total, wi
     <data name="AgentSettingMemoryIndexBudgetDesc" xml:space="preserve">
         <value>At the start of a new session, and after each memory compression, the agent receives a memory list (file name and first line of every note). Past this many characters only the most recently modified notes are listed, and the agent is told how many were left out.</value>
     </data>
-    <data name="AgentSettingSubAgentFallbackHint" xml:space="preserve">
-        <value>(Not set — falls back to the main agent model)</value>
+    <data name="AgentSettingSubAgentMultiFallbackHint" xml:space="preserve">
+        <value>(Not set — falls back to the main agent; multi-select)</value>
     </data>
     <data name="AgentSettingDefaultSubAgentCharacter" xml:space="preserve">
         <value>Default sub-agent character</value>

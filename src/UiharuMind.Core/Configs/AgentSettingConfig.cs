@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using System.Text.Json.Serialization;
 using UiharuMind.Core.Core.Utils;
 
 namespace UiharuMind.Core.Configs;
@@ -36,6 +37,10 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public const string FactoryDefaultFirecrawlApiKey = "";
     public const string FactoryDefaultTavilyApiKey = "";
     public const string FactoryDefaultBraveSearchApiKey = "";
+
+    private List<string> _generalSubAgentModelNames = new(); //通用子代理的模型名单，顺序即轮换顺序
+    private List<string> _brainSubAgentModelNames = new(); //脑的模型名单
+    private List<string> _explorerSubAgentModelNames = new(); //探索档的模型名单
 
     /// <summary>新会话默认权限档(0 只读 / 1 自动编辑 / 2 完全自动)</summary>
     public int DefaultPermissionModeIndex { get; set; } = FactoryDefaultPermissionModeIndex;
@@ -86,23 +91,59 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public string ShellBinaryPath { get; set; } = FactoryDefaultShellBinaryPath;
 
     /// <summary>
-    /// 脑使用的模型名(空 = 回退到主代理模型)。脑同步、有界、只读地整理大文件与被截断的工具结果，
+    /// 脑使用的模型名(空列表 = 回退到主代理模型)。脑同步、有界、只读地整理大文件与被截断的工具结果，
     /// 配一个便宜的小模型正合适（ADR 0082）。
+    ///
+    /// <b>可以配多个</b>：同时开着的脑挨个取用，不至于全挤在同一个模型上排队（ADR 0111，
+    /// 取用顺序见 <c>SubAgentModelRotation</c>）。列表顺序即轮换顺序。
     /// </summary>
-    public string BrainSubAgentModelName { get; set; } = string.Empty;
+    public List<string> BrainSubAgentModelNames
+    {
+        get => _brainSubAgentModelNames;
+        // 读档时 JSON 里写着 null 也当空：派活侧拿到的必须是可枚举的名单，不是 null
+        set => _brainSubAgentModelNames = value ?? new();
+    }
 
     /// <summary>
-    /// 探索档使用的模型名(空 = 回退到主代理模型)。探索档是 CreateAgent 置 readOnly 派出的
+    /// 探索档使用的模型名(空列表 = 回退到主代理模型)。探索档是 CreateAgent 置 readOnly 派出的
     /// 异步后台、恒定只读调研/审阅助手，配一个便宜小模型正合适（与脑同源，见 SubAgentProfile.Explorer）。
+    /// 可配多个，语义同 <see cref="BrainSubAgentModelNames"/>。
     /// </summary>
-    public string ExplorerSubAgentModelName { get; set; } = string.Empty;
+    public List<string> ExplorerSubAgentModelNames
+    {
+        get => _explorerSubAgentModelNames;
+        set => _explorerSubAgentModelNames = value ?? new();
+    }
 
     /// <summary>
-    /// 通用子代理使用的模型名(空 = 回退到主代理模型)。
+    /// 通用子代理使用的模型名(空列表 = 回退到主代理模型)。
     /// 通用子代理做实际修改操作,可给它配一个与主代理不同的模型
     /// (比如主代理用推理慢的大模型,通用子代理用快模型)。
+    /// 可配多个，语义同 <see cref="BrainSubAgentModelNames"/>——同时派出几个子代理时最需要它：
+    /// 全落在同一个模型上会撞供应商的并发限额，看起来就是「一委派就卡」。
     /// </summary>
-    public string GeneralSubAgentModelName { get; set; } = string.Empty;
+    public List<string> GeneralSubAgentModelNames
+    {
+        get => _generalSubAgentModelNames;
+        set => _generalSubAgentModelNames = value ?? new();
+    }
+
+
+    //================= 旧版单值字段(只读不写,迁移后清空) =================
+    /// <summary>ADR 0111 之前的单值字段：只用于读旧档，<see cref="MigrateLegacySubAgentModels"/> 会把它并进列表并置空，之后不再写回</summary>
+    [JsonPropertyName("BrainSubAgentModelName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LegacyBrainSubAgentModelName { get; set; }
+
+    /// <inheritdoc cref="LegacyBrainSubAgentModelName"/>
+    [JsonPropertyName("ExplorerSubAgentModelName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LegacyExplorerSubAgentModelName { get; set; }
+
+    /// <inheritdoc cref="LegacyBrainSubAgentModelName"/>
+    [JsonPropertyName("GeneralSubAgentModelName")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? LegacyGeneralSubAgentModelName { get; set; }
 
     /// <summary>
     /// 通用子代理默认使用的角色卡标识。<b>空 = 内置「通用子代理」身份卡</b>（那张卡没有
@@ -147,6 +188,25 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public int MemoryIndexBudget { get; set; } = FactoryDefaultMemoryIndexBudget;
 
     /// <summary>
+    /// 把旧版的三条单值模型字段并进多选列表（读档后自动调用一次，见 <c>ConfigBase.OnLoaded</c>）。
+    ///
+    /// 不迁移的话旧档里的模型配置会在升级后<b>静默失效</b>——列表默认空，界面显示「跟随主代理」，
+    /// 用户看不出是升级弄丢的。迁移完把旧字段置空，落盘时随 <see cref="JsonIgnoreCondition.WhenWritingNull"/> 消失。
+    ///
+    /// <b>幂等</b>：旧档在用户下次改设置之前一直是旧形状，所以每次启动都会再跑一遍；靠 <c>Contains</c> 去重。
+    /// </summary>
+    internal void MigrateLegacySubAgentModels()
+    {
+        GeneralSubAgentModelNames = Merge(GeneralSubAgentModelNames, LegacyGeneralSubAgentModelName);
+        BrainSubAgentModelNames = Merge(BrainSubAgentModelNames, LegacyBrainSubAgentModelName);
+        ExplorerSubAgentModelNames = Merge(ExplorerSubAgentModelNames, LegacyExplorerSubAgentModelName);
+
+        LegacyGeneralSubAgentModelName = null;
+        LegacyBrainSubAgentModelName = null;
+        LegacyExplorerSubAgentModelName = null;
+    }
+
+    /// <summary>
     /// 把一个工作目录记为最近使用:置顶、去重、裁尾,并立即落盘。列表操作见 <see cref="RecentPathList"/>。
     /// </summary>
     /// <param name="path">工作目录;空或不存在则忽略</param>
@@ -163,5 +223,20 @@ public class AgentSettingConfig : TConfigBase<AgentSettingConfig>
     public void ForgetWorkspace(string? path)
     {
         if (RecentHistory.Forget(path)) Save();
+    }
+
+    /// <inheritdoc cref="MigrateLegacySubAgentModels"/>
+    internal override void OnLoaded() => MigrateLegacySubAgentModels();
+
+    /// <summary>
+    /// 合并成一份<b>新</b>列表，不原地追加：读方（派活、落盘）可能正握着旧那一份，
+    /// 换实例等于给它一个不会变的快照。没东西可并时原样返回，不白拷一份。
+    /// </summary>
+    private static List<string> Merge(List<string> current, string? legacy)
+    {
+        if (string.IsNullOrWhiteSpace(legacy)) return current;
+        string name = legacy.Trim();
+        if (current.Contains(name)) return current;
+        return [..current, name];
     }
 }

@@ -39,24 +39,24 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private int _defaultPermissionModeIndex;
 
     /// <summary>
-    /// 可选模型列表(与顶栏模型选择器同源)。通用子代理从中选模型，只有一行，并在常规页里。
+    /// 可选模型列表(与顶栏模型选择器同源)。三档子代理模型都从它里多选，只有三行，并在常规页里。
     /// </summary>
     public ObservableCollection<ModelRunningData> AvailableModels { get; } = new();
 
     /// <summary>
-    /// 当前选中的通用子代理模型。null = 回退到主代理模型。
+    /// 通用子代理模型（可多选，派活依次取用，ADR 0111）。空 = 回退到主代理模型。
     /// </summary>
-    [ObservableProperty] private ModelRunningData? _generalSubAgentModel;
+    public SubAgentModelSlot GeneralSubAgentModels { get; }
 
     /// <summary>
-    /// 当前选中的脑模型（ADR 0082）。null = 回退到主代理模型。
+    /// 整理（脑）模型（ADR 0082），多选语义同上。空 = 回退到主代理模型。
     /// </summary>
-    [ObservableProperty] private ModelRunningData? _brainSubAgentModel;
+    public SubAgentModelSlot BrainSubAgentModels { get; }
 
     /// <summary>
-    /// 当前选中的探索档模型（CreateAgent 置 readOnly 派出）。null = 回退到主代理模型。
+    /// 探索档模型（CreateAgent 置 readOnly 派出），多选语义同上。空 = 回退到主代理模型。
     /// </summary>
-    [ObservableProperty] private ModelRunningData? _explorerSubAgentModel;
+    public SubAgentModelSlot ExplorerSubAgentModels { get; }
 
     /// <summary>
     /// 通用子代理默认使用的角色卡。null = 内置「通用子代理」基座卡（无人格，只拿任务书）。
@@ -75,6 +75,7 @@ public partial class AgentSettingViewData : ViewModelBase
 
     // 探索型子代理模型（CreateAgent 置 readOnly 派出的探索档）曾随 ADR 0044 退役、
     // 选择器删了；现随探索档复活（SubAgentProfile.Explorer）恢复为常规页一行，与脑/通用同款。
+    // 三行都改成了多选（ADR 0111）：同一档配多个模型，派活依次取用，不让并发子代理全挤在一个模型上。
 
     //================= 联网搜索(能力开关已下沉到角色,见 ADR 0003) =================
     /// <summary>凭据与链路状态自成一块,见 <see cref="WebSearchSettingsViewData"/></summary>
@@ -87,11 +88,9 @@ public partial class AgentSettingViewData : ViewModelBase
     /// <summary>最近一次改动的反馈文本（如「已保存」），空串不显示</summary>
     [ObservableProperty] private string _statusText = string.Empty;
 
-    // 「值≠出厂值」才显示单项恢复默认按钮（SettingsRow 可见性绑定用）；出厂值引用 AgentSettingConfig 常量
+    // 「值≠出厂值」才显示单项恢复默认按钮（SettingsRow 可见性绑定用）；
+    // 三档模型的 IsNotDefault 长在各自的槽上（空 = 回退主代理，出厂态）
     public bool IsDefaultPermissionModeNotDefault => DefaultPermissionModeIndex != AgentSettingConfig.FactoryDefaultPermissionModeIndex;
-    public bool IsGeneralSubAgentModelNotDefault => GeneralSubAgentModel is not null; // null = 回退主代理，出厂态
-    public bool IsBrainSubAgentModelNotDefault => BrainSubAgentModel is not null; // 同上
-    public bool IsExplorerSubAgentModelNotDefault => ExplorerSubAgentModel is not null; // 同上
     public bool IsDefaultSubAgentCharacterNotDefault => DefaultSubAgentCharacter is not null; // null = 内置基座卡，出厂态
     public bool IsMemoryIndexBudgetNotDefault => MemoryIndexBudget != AgentSettingConfig.FactoryDefaultMemoryIndexBudget;
 
@@ -135,6 +134,13 @@ public partial class AgentSettingViewData : ViewModelBase
 
     public AgentSettingViewData()
     {
+        GeneralSubAgentModels = CreateSlot(config => config.GeneralSubAgentModelNames,
+            (config, names) => config.GeneralSubAgentModelNames = names);
+        BrainSubAgentModels = CreateSlot(config => config.BrainSubAgentModelNames,
+            (config, names) => config.BrainSubAgentModelNames = names);
+        ExplorerSubAgentModels = CreateSlot(config => config.ExplorerSubAgentModelNames,
+            (config, names) => config.ExplorerSubAgentModelNames = names);
+
         // 回填照常走属性:handler 会跑,但闸门关着,不会在打开设置页的瞬间把配置重写一遍
         using (_writeBack.BeginLoad())
         {
@@ -186,37 +192,16 @@ public partial class AgentSettingViewData : ViewModelBase
         _writeBack.Save();
     }
 
-    //================= 常规:通用子代理模型,变更即存 =================
-    partial void OnGeneralSubAgentModelChanged(ModelRunningData? value)
-    {
-        OnPropertyChanged(nameof(IsGeneralSubAgentModelNotDefault));
-        // 回填与候选重建期间的赋值不是用户意图：列表里暂时没有这个模型时界面会回落到 null，
-        // 那不代表用户要清掉配置——名字留着，模型回来就自动生效
-        if (_writeBack.IsLoading) return;
-        AgentSettingConfig.Current.GeneralSubAgentModelName = value?.ModelName ?? string.Empty;
-        _writeBack.Save();
-        StatusText = Loc.Text(LangKey.ShortcutSavedTips);
-    }
-
-    //================= 常规:脑模型,变更即存（ADR 0082） =================
-    partial void OnBrainSubAgentModelChanged(ModelRunningData? value)
-    {
-        OnPropertyChanged(nameof(IsBrainSubAgentModelNotDefault));
-        if (_writeBack.IsLoading) return;
-        AgentSettingConfig.Current.BrainSubAgentModelName = value?.ModelName ?? string.Empty;
-        _writeBack.Save();
-        StatusText = Loc.Text(LangKey.ShortcutSavedTips);
-    }
-
-    //================= 常规:探索档模型,变更即存 =================
-    partial void OnExplorerSubAgentModelChanged(ModelRunningData? value)
-    {
-        OnPropertyChanged(nameof(IsExplorerSubAgentModelNotDefault));
-        if (_writeBack.IsLoading) return;
-        AgentSettingConfig.Current.ExplorerSubAgentModelName = value?.ModelName ?? string.Empty;
-        _writeBack.Save();
-        StatusText = Loc.Text(LangKey.ShortcutSavedTips);
-    }
+    //================= 常规:子代理模型(三档同款多选槽),变更即存,之后新派出的子代理起生效 =================
+    /// <summary>
+    /// 建一档模型槽。三档只差「配置里的哪一列」，其余行为（回填、重建、恢复默认、落盘、反馈）全在槽里写一遍。
+    /// </summary>
+    /// <param name="read">读配置里这一档的模型名名单</param>
+    /// <param name="write">写回那一列（赋值，不原地改）</param>
+    private SubAgentModelSlot CreateSlot(Func<AgentSettingConfig, List<string>> read,
+        Action<AgentSettingConfig, List<string>> write) =>
+        new(AvailableModels, _writeBack, () => AgentSettingConfig.Current, read, write,
+            () => StatusText = Loc.Text(LangKey.ShortcutSavedTips));
 
     //================= 常规:子代理默认角色卡,变更即存,之后新派出的通用子代理起生效 =================
     partial void OnDefaultSubAgentCharacterChanged(CharacterData? value)
@@ -258,9 +243,11 @@ public partial class AgentSettingViewData : ViewModelBase
     }
 
     /// <summary>
-    /// 模型列表刷新后同步下拉。已选还活着就按名找回，找不到就回到跟随主代理模式；
-    /// 重建候选与回填整段包在闸门里：清空 ItemsSource 会让控件把 SelectedItem 推成 null
-    /// 写回属性，而那一下不是用户输入，不该落盘（见 <see cref="SettingsWriteBack.BeginRebuild"/>）。
+    /// 模型列表刷新后同步下拉。已选还活着就按名找回，找不到就回到跟随主代理模式。
+    ///
+    /// 整段包在重建闸门里：<c>ItemsSource</c> 重建时控件会自己动一遍已选，那不是用户输入。
+    /// （槽内部还有一道自屏蔽，回填本身不依赖外层闸门；这里管的是候选重建这一下，
+    /// 它同时影响页里其它绑到 <see cref="AvailableModels"/> 的控件。）
     /// </summary>
     public void RefreshAvailableModels()
     {
@@ -271,48 +258,25 @@ public partial class AgentSettingViewData : ViewModelBase
             return;
         }
 
-        string? selectedName = GeneralSubAgentModel?.ModelName
-            ?? AgentSettingConfig.Current.GeneralSubAgentModelName;
-        string? brainName = BrainSubAgentModel?.ModelName
-            ?? AgentSettingConfig.Current.BrainSubAgentModelName;
-        string? explorerName = ExplorerSubAgentModel?.ModelName
-            ?? AgentSettingConfig.Current.ExplorerSubAgentModelName;
         using (_writeBack.BeginRebuild())
         {
             RebuildAvailableModels();
-            GeneralSubAgentModel = string.IsNullOrEmpty(selectedName)
-                ? null
-                : AvailableModels.FirstOrDefault(m => m.ModelName == selectedName);
-            BrainSubAgentModel = string.IsNullOrEmpty(brainName)
-                ? null
-                : AvailableModels.FirstOrDefault(m => m.ModelName == brainName);
-            ExplorerSubAgentModel = string.IsNullOrEmpty(explorerName)
-                ? null
-                : AvailableModels.FirstOrDefault(m => m.ModelName == explorerName);
+            GeneralSubAgentModels.Refresh();
+            BrainSubAgentModels.Refresh();
+            ExplorerSubAgentModels.Refresh();
         }
     }
 
     /// <summary>
-    /// 从 LlmManager 加载可用模型列表,并回填当前选中的通用子代理模型与脑模型。
-    /// 调用方需包在回填作用域里（构造里已包），否则回填赋值会误落盘。
+    /// 从 LlmManager 加载可用模型列表,并回填三档子代理模型的已选。
+    /// 调用方需包在回填作用域里（构造里已包），否则回填引起的集合变更会误落盘。
     /// </summary>
     private void LoadAvailableModels()
     {
         RebuildAvailableModels();
-
-        AgentSettingConfig config = AgentSettingConfig.Current;
-        if (!string.IsNullOrWhiteSpace(config.GeneralSubAgentModelName))
-        {
-            GeneralSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.GeneralSubAgentModelName);
-        }
-        if (!string.IsNullOrWhiteSpace(config.BrainSubAgentModelName))
-        {
-            BrainSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.BrainSubAgentModelName);
-        }
-        if (!string.IsNullOrWhiteSpace(config.ExplorerSubAgentModelName))
-        {
-            ExplorerSubAgentModel = AvailableModels.FirstOrDefault(m => m.ModelName == config.ExplorerSubAgentModelName);
-        }
+        GeneralSubAgentModels.Load();
+        BrainSubAgentModels.Load();
+        ExplorerSubAgentModels.Load();
     }
 
     /// <summary>
@@ -331,24 +295,6 @@ public partial class AgentSettingViewData : ViewModelBase
     private void ResetDefaultPermissionMode()
     {
         DefaultPermissionModeIndex = AgentSettingConfig.FactoryDefaultPermissionModeIndex;
-    }
-
-    [RelayCommand]
-    private void ResetGeneralSubAgentModel()
-    {
-        GeneralSubAgentModel = null; // 回退到主代理模型
-    }
-
-    [RelayCommand]
-    private void ResetBrainSubAgentModel()
-    {
-        BrainSubAgentModel = null; // 回退到主代理模型
-    }
-
-    [RelayCommand]
-    private void ResetExplorerSubAgentModel()
-    {
-        ExplorerSubAgentModel = null; // 回退到主代理模型
     }
 
     [RelayCommand]

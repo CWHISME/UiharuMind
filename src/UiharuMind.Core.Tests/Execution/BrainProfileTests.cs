@@ -19,27 +19,31 @@ public class BrainProfileTests
     }
 
     [Fact]
-    public void Brain_ResolveModelName_ReadsBrainSetting()
+    public void Brain_ResolveModelNames_ReadsBrainSetting()
     {
-        AgentSettingConfig config = new() { BrainSubAgentModelName = "fast-1" };
+        AgentSettingConfig config = new() { BrainSubAgentModelNames = { "fast-1", "fast-2" } };
 
-        Assert.Equal("fast-1", SubAgentProfile.Brain.ResolveModelName(config));
+        Assert.Equal(new[] { "fast-1", "fast-2" }, SubAgentProfile.Brain.ResolveModelNames(config));
     }
 
-    /// <summary>脑模型配置空串 = 跟随主代理/全局</summary>
+    /// <summary>脑模型未配置 = 跟随主代理/全局（空列表）</summary>
     [Fact]
-    public void Brain_ResolveModelName_Empty_FallsBackToGlobal()
+    public void Brain_ResolveModelNames_Empty_FallsBackToGlobal()
     {
-        Assert.Equal(string.Empty, SubAgentProfile.Brain.ResolveModelName(new AgentSettingConfig()));
+        Assert.Empty(SubAgentProfile.Brain.ResolveModelNames(new AgentSettingConfig()));
     }
 
     /// <summary>General 不吃脑配置</summary>
     [Fact]
-    public void General_ResolveModelName_IgnoresBrainSetting()
+    public void General_ResolveModelNames_IgnoresBrainSetting()
     {
-        AgentSettingConfig config = new() { BrainSubAgentModelName = "fast-1", GeneralSubAgentModelName = "main-1" };
+        AgentSettingConfig config = new()
+        {
+            BrainSubAgentModelNames = { "fast-1" },
+            GeneralSubAgentModelNames = { "main-1" },
+        };
 
-        Assert.Equal("main-1", SubAgentProfile.General.ResolveModelName(config));
+        Assert.Equal(new[] { "main-1" }, SubAgentProfile.General.ResolveModelNames(config));
     }
 
     /// <summary>Explorer 字符串值仍可反序列化（老存档/导入兼容），且是活档语义</summary>
@@ -60,18 +64,18 @@ public class BrainProfileTests
     }
 
     [Fact]
-    public void Explorer_ResolveModelName_ReadsExplorerSetting()
+    public void Explorer_ResolveModelNames_ReadsExplorerSetting()
     {
-        AgentSettingConfig config = new() { ExplorerSubAgentModelName = "survey-1" };
+        AgentSettingConfig config = new() { ExplorerSubAgentModelNames = { "survey-1" } };
 
-        Assert.Equal("survey-1", SubAgentProfile.Explorer.ResolveModelName(config));
+        Assert.Equal(new[] { "survey-1" }, SubAgentProfile.Explorer.ResolveModelNames(config));
     }
 
-    /// <summary>探索模型配置空串 = 跟随主代理/全局</summary>
+    /// <summary>探索模型未配置 = 跟随主代理/全局（空列表）</summary>
     [Fact]
-    public void Explorer_ResolveModelName_Empty_FallsBackToGlobal()
+    public void Explorer_ResolveModelNames_Empty_FallsBackToGlobal()
     {
-        Assert.Equal(string.Empty, SubAgentProfile.Explorer.ResolveModelName(new AgentSettingConfig()));
+        Assert.Empty(SubAgentProfile.Explorer.ResolveModelNames(new AgentSettingConfig()));
     }
 
     /// <summary>探索档只读但不算脑系：右栏照常列条目、不被脑追问认领</summary>

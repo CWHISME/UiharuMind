@@ -144,7 +144,7 @@ if [ -n "${SMOKE_MODEL:-}" ]; then
     mv "$out/scenario.jsonl.tmp" "$out/scenario.jsonl"
     agent="$out/home/Config/AgentSettingConfig.json"
     [ -f "$agent" ] || echo '{}' > "$agent"
-    jq --arg m "$SMOKE_MODEL" '.GeneralSubAgentModelName = $m' "$agent" > "$agent.tmp"
+    jq --argjson m "[\"$SMOKE_MODEL\"]" '.GeneralSubAgentModelNames = $m' "$agent" > "$agent.tmp"
     mv "$agent.tmp" "$agent"
 fi
 

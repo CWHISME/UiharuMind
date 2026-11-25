@@ -82,7 +82,7 @@ public static class BrainTool
     /// <summary>开一个新脑：真子会话，钉 Brain 档与脑模型（空 = 跟随主代理/全局）</summary>
     private static ChatSession CreateBrain(SubAgentTool.LaunchContext context, string task)
     {
-        SubAgentTool.ModelChoice model = SubAgentTool.ResolveSubAgentModelName(context.Profile);
+        ModelChoice model = SubAgentTool.ResolveSubAgentModelName(context.Profile);
         ChatSession session = SubAgentTool.CreateSubSession(context, ESubAgentType.Brain,
             DefaultCharacter.AnonymousAgent.ToString(), SubAgentTool.BuildTitle(task), task,
             string.Empty, string.Empty, model.Name);

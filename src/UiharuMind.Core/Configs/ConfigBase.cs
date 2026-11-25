@@ -40,6 +40,20 @@ public class ConfigBase : INotifyPropertyChanged
 
     protected virtual bool AllowSelfSave => true;
 
+    /// <summary>
+    /// 读档完成后的收尾：旧字段迁移、派生值修正这类"只在刚读完时跑一次"的事。
+    /// 由 <see cref="TConfigBase{T}"/> 在反序列化结束、写盘抑制解开之后调用——
+    /// 反序列化中途对象还是半成品，在那里做迁移会拿别的字段的默认值当真相。
+    ///
+    /// <b>约束：不许碰其他配置/单例、不许落盘、不许拿 UI 线程持有的锁。</b>
+    /// 它跑在类型初始化的锁内（<c>Current</c> 的静态构造），而 <c>Current</c> 常常是
+    /// 后台线程第一个碰（派活路径会读配置）：在这里引一个互相依赖的静态初始化就是死锁，
+    /// 抛异常则是 <c>TypeInitializationException</c>——之后每次访问都炸，不可恢复。
+    /// </summary>
+    internal virtual void OnLoaded()
+    {
+    }
+
     // public void Load()
     // {
     //     SaveUtility.Load<T>(this.GetType().Name);
