@@ -195,20 +195,14 @@ internal static class SubAgentAssembly
         AgentBuildProfile profile = plan.Profile;
         SubAgentIdentity identity = profile.SubAgent
                                     ?? throw new InvalidOperationException("BuildFromPlan 只接受子会话的装配计划");
-        // 三档按自己的档案装配：通用可改；探索恒定只读（只读但保留 Glob/联网）；
-        // 脑同步有界只读（ADR 0082）。从前的墓碑档（Explorer）重建按脑，已随复活取消。
-        SubAgentProfile subProfile = identity.Type switch
-        {
-            ESubAgentType.General => SubAgentProfile.General,
-            ESubAgentType.Brain => SubAgentProfile.Brain,
-            ESubAgentType.Explorer => SubAgentProfile.Explorer,
-            _ => throw new ArgumentOutOfRangeException(nameof(identity.Type), identity.Type, null),
-        };
+        // 各档按自己的档案装配：委派的三档（通用 / 探索 / 评审）只差产出纪律、身份卡与模型，
+        // 边界一律由权限档定；脑同步有界只读（ADR 0082）。类型到档案只有 SubAgentProfile.Of 一个映射处。
+        SubAgentProfile subProfile = SubAgentProfile.Of(identity.Type);
 
         EAgentPermissionMode effectivePermission = subProfile.ForceReadOnly
             ? EAgentPermissionMode.ReadOnly
             : profile.PermissionMode;
-        // 挂不挂 shell/MCP 与档位无关了,只看是不是只读档——能不能真的执行由审批规则把关
+        // 挂不挂 shell/MCP 与档位无关,只看能力配置与场合表——能不能真的执行由审批规则把关
         bool canMutate = !subProfile.ForceReadOnly;
 
         bool named = identity.AgentName.Length > 0;
@@ -285,7 +279,7 @@ internal static class SubAgentAssembly
             string personaSection = AgentInstructionsComposer.CharacterSection(persona);
             // 判据与正常路径同一口径：人格已提供身份时不再补匿名身份句
             string identitySection = BuildIdentitySection(persona.Length > 0, input.Role, canMutate: false,
-                brain: input.SubAgentProfile.IsBrain);
+                input.SubAgentProfile.Type);
             List<string> fallbackParts = [];
             if (personaSection.Length > 0) fallbackParts.Add(personaSection);
             // 标题→正文单换行,与正常路径 list.Section 同一口径(主题段内部刻意不空行撑开)
@@ -310,20 +304,15 @@ internal static class SubAgentAssembly
     /// </summary>
     /// <param name="plan">主代理的装配计划（工作目录、工作区规矩、权限档与名单由此继承）</param>
     /// <param name="client">模型客户端(与主代理同一惰性客户端)</param>
-    /// <param name="subProfile">子代理策略;未传时用通用子代理(兼容现有调用方)</param>
     /// <returns>两把工具;无任何能力可用时为 null</returns>
-    public static IReadOnlyList<AITool>? TryCreateTools(AgentAssemblyPlan plan, IChatClient client,
-        SubAgentProfile? subProfile = null)
+    public static IReadOnlyList<AITool>? TryCreateTools(AgentAssemblyPlan plan, IChatClient client)
     {
-        subProfile ??= SubAgentProfile.General;
+        // 委派的三档共用这一份装配（ADR 0112 修订）：档位由调用方参数 <c>mode</c> 现选，
+        // 这里只给「派活者那一档」当默认。曾经按档案分派 Explore/General 两条路，随只读边界一起退场
+        SubAgentProfile subProfile = SubAgentProfile.General;
         AgentBuildProfile profile = plan.Profile;
         AgentToolConfig config = plan.Config;
         string workingDirectory = plan.WorkingDirectory;
-        // 探索型始终只读,覆盖主代理的权限档;通用型继承主代理的权限档
-        EAgentPermissionMode effectivePermission = subProfile.ForceReadOnly
-            ? EAgentPermissionMode.ReadOnly
-            : profile.PermissionMode;
-        bool fullAuto = effectivePermission == EAgentPermissionMode.FullAuto;
 
         SubAgentAssemblyInput Probe(AITool? shellTool, string? shellBinary, McpToolSet mcp,
             AgentToolConfig effectiveConfig, string persona, string name) => new()
@@ -339,7 +328,7 @@ internal static class SubAgentAssembly
             Browser = PuppeteerBrowserHost.Shared,
             Desktop = DesktopHost.Shared,
             Character = plan.Character,
-            PermissionMode = effectivePermission,
+            PermissionMode = profile.PermissionMode, // 委派三档都继承派活者的权限档（档位不再是边界）
             WorkspaceInstructions = plan.WorkspaceInstructions,
             ShellTool = shellTool,
             ShellBinary = shellBinary,
@@ -436,7 +425,7 @@ internal static class SubAgentAssembly
     /// <summary>
     /// 子代理装配选项(纯函数,不碰单例)。工具与主代理同一份装配(<see cref="AgentToolsetBuilder"/>),
     /// 比主代理少的那几档(委派、技能、定时任务、知识库、朗读、后台任务)只写在场合表里(<see cref="AgentToolScopes"/>);
-    /// 探索档恒定只读（ADR 0044 复活）。能不能动手由 <see cref="ApprovalModeMapper"/> 定——与主代理同一口径,
+    /// 委派的三档共用一份工具集（ADR 0112 修订）。能不能动手由 <see cref="ApprovalModeMapper"/> 定——与主代理同一口径,
     /// 因为子代理跑自己的 <c>TurnDriver</c>,审批请求冒到派活者这一轮的回应口(ADR 0021)。不变量均由测试钉住。
     /// </summary>
     /// <param name="input">装配输入</param>
@@ -444,13 +433,11 @@ internal static class SubAgentAssembly
     internal static HarnessAgentOptions? BuildSubAgentOptions(SubAgentAssemblyInput input)
     {
         AgentToolConfig config = input.Config;
-        // 新派的有三档：通用（可改）、探索（ADR 0044 复活，恒定只读但保留 Glob/联网）、
-        // 脑（ADR 0082，恒定只读，只给 Grep/Read）。scope 说话，工具名不在此处猜测。
+        // 场合只有两种：委派（三档共用一份工具集，边界由权限档定）与脑（ADR 0082，恒定只读、
+        // 只给 Grep/Read）。scope 说话，工具名不在此处猜测。
         EAgentToolScope scope = input.SubAgentProfile.IsBrain
             ? EAgentToolScope.Brain
-            : input.SubAgentProfile.ForceReadOnly
-                ? EAgentToolScope.Explore
-                : EAgentToolScope.SubAgent;
+            : EAgentToolScope.SubAgent;
         bool canMutate = !AgentToolScopes.Of(scope).ReadOnlyFiles;
         string outputRoom = AgentOutputLayout.GetRoomAbsolutePath(input.OutputFolderName);
         // 与主代理同一份路径口径:共用那间草稿目录,简写的写法跟子代理自己的 shell 走(子代理不带记忆);
@@ -505,8 +492,9 @@ internal static class SubAgentAssembly
         // 无人值守兜底:到顶即停止循环并把已有进展作为响应返回(框架不抛异常)。
         // 脑是有界活:内部工具轮压到 BrainTool.MaxIterations,到顶返回已得部分(ADR 0082)
         options.MaximumIterationsPerRequest = input.SubAgentProfile.MaxIterations;
-        // 审批中间件照挂,规则与主代理同源——档位语义只有一处定义(ApprovalModeMapper)。
-        // 非完全自动档下这里不会被用到:那些档位挂的全是免审批的只读工具
+        // 审批中间件照挂,规则与主代理同源——权限档语义只有一处定义(ApprovalModeMapper)。
+        // 委派三档的写工具在哪个权限档下都挂着（ADR 0112 修订），所以这一层在只读/自动编辑档下
+        // 真的会被用到：写调用落到审批，子会话窗口里点，无人值守则到点按拒绝收口
         options.ToolApprovalAgentOptions = new ToolApprovalAgentOptions
         {
             AutoApprovalRules = ApprovalModeMapper.BuildRules(input.PermissionMode,
@@ -529,8 +517,7 @@ internal static class SubAgentAssembly
         // 只读场合不发扩展名单：脑（Brain）场合本身没有扩展
         entries.Any(x => x.Capability == EAgentCapability.Extensions)
             ? ExtensionRoster.Section(config, scope) : string.Empty,
-            input.Persona, input.Role,
-            brain: input.SubAgentProfile.IsBrain);
+            input.Persona, input.Role, input.SubAgentProfile.Type);
         subOptions.Tools = tools;
         options.ChatOptions = subOptions;
         return options;
@@ -545,9 +532,10 @@ internal static class SubAgentAssembly
     /// <param name="hasPersona">人格段是否有内容（决定要不要再补匿名身份句）</param>
     /// <param name="role">派活时给的一句话主题；空串则不写那一句</param>
     /// <param name="canMutate">是否挂了可变更工具（决定边界句取哪一档）</param>
-    /// <param name="brain">是否脑（ADR 0082）：追加脑纪律</param>
+    /// <param name="type">子代理档：只读档各自追加自己的产出纪律（脑 / 评审）</param>
     /// <returns># 主题 段正文（不含标题）；可能为空串</returns>
-    private static string BuildIdentitySection(bool hasPersona, string role, bool canMutate, bool brain = false)
+    private static string BuildIdentitySection(bool hasPersona, string role, bool canMutate,
+        ESubAgentType type = ESubAgentType.General)
     {
         List<string> identity = [];
         if (!hasPersona) identity.Add(SubAgentPrompts.Role);
@@ -556,8 +544,10 @@ internal static class SubAgentAssembly
         // 边界句置空(见 SubAgentPrompts 注释):能力由工具集决定,规则由任务书指明。非空才入列。
         string? boundary = canMutate ? SubAgentPrompts.BoundaryCanMutate : SubAgentPrompts.BoundaryReadOnly;
         if (boundary.Length > 0) identity.Add(boundary);
-        // 脑的纪律是身份的一部分:只读 + 一段话总结 + 可被追问(ADR 0082)
-        if (brain) identity.Add(SubAgentPrompts.BrainDiscipline);
+        // 只读档的产出纪律是身份的一部分：脑 = 一段话总结 + 可被追问（ADR 0082）；
+        // 评审 = 总体判断 + 按严重度排的问题清单（ADR 0112）。探索不发——它的产出形状由任务书定
+        if (type == ESubAgentType.Brain) identity.Add(SubAgentPrompts.BrainDiscipline);
+        else if (type == ESubAgentType.Reviewer) identity.Add(SubAgentPrompts.ReviewDiscipline);
         return string.Join("\n", identity);
     }
 
@@ -587,15 +577,17 @@ internal static class SubAgentAssembly
     /// <param name="outputRoomDirectory">草稿目录(派活者会话的房间)绝对路径；空串则不写该段</param>
     /// <param name="workspaceInstructions">工作区说明文件内容(只取有无,有则给指针,不拼正文)</param>
     /// <param name="extensionsSection">扩展名单段（挂了扩展的元工具才有）</param>
-    /// <param name="brain">是不是脑（ADR 0082）：追加脑纪律，不给 Glob</param>
+    /// <param name="type">子代理档（决定要不要追加脑 / 评审的产出纪律）</param>
     /// <returns>提示词</returns>
     private static string BuildSubAgentInstructions(AgentToolConfig config, bool hasShell,
         string shellBinary, bool canMutate, string pythonOutputDirectory,
         string workingDirectory, string outputRoomDirectory, string worktreesRoot,
         string workspaceInstructions, string extensionsSection,
-        string persona = "", string role = "", bool brain = false)
+        string persona = "", string role = "", ESubAgentType type = ESubAgentType.General)
     {
         bool hasPersona = persona.Length > 0;
+        // 脑的两处差异（无 Glob、协作段不主动开口，ADR 0082）仍按它取；其余档位差别走档案与纪律
+        bool brain = type == ESubAgentType.Brain;
 
         PromptSectionList list = new();
         // 基座与主代理共用同一份(AgentBasePrompts.Base)：最底层的根本规则，恒在最前。
@@ -606,14 +598,15 @@ internal static class SubAgentAssembly
         list.Raw(hasPersona, AgentInstructionsComposer.CharacterSection(persona));
         // 身份段(# 主题)。有人格时人格已是身份,不再跟一句"你是 UiharuMind 的一个代理"
         // ——那是跟人格抢身份;主题段只给派活时的一句话主题
-        list.Section(true, AgentPromptHeadings.SubAgentTopic, BuildIdentitySection(hasPersona, role, canMutate, brain));
+        list.Section(true, AgentPromptHeadings.SubAgentTopic, BuildIdentitySection(hasPersona, role, canMutate, type));
 
         // 工具纪律与主代理共用同一张清单(段序、出现条件都在那一处定义)
         list.Raw(true, ToolDisciplineSections.Build(new ToolDisciplineSections.ToolDisciplineFacts
         {
             FileRead = config.EnableFileAccess,
-            // 只读档拿的是 disableWriteTools 裁过的那份:有 Glob/Grep/Read,没有 Edit/Write;
-            // 脑再裁一刀没有 Glob(ADR 0082)——纪律段点名了它而工具集里没有,违反不变量
+            // 只有脑拿的是 disableWriteTools 裁过的那份（有 Glob/Grep/Read,没有 Edit/Write）;
+            // 委派三档的写工具随能力配置走（边界由审批档管）。脑再裁一刀没有 Glob(ADR 0082)——
+            // 纪律段点名了它而工具集里没有,违反不变量
             FileGlob = !brain,
             FileWrite = config.EnableFileAccess && canMutate,
             Shell = hasShell,

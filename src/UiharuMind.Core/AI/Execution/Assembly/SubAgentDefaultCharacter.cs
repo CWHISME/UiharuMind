@@ -19,8 +19,8 @@ namespace UiharuMind.Core.AI.Execution.Assembly;
 /// 人格恒为空——它就是一份任务书。用户现在可以指定一张角色卡当默认人格，
 /// 于是「通用子代理」也能有稳定的说话方式与专长；不指定则一切照旧。
 ///
-/// <b>只认通用档</b>：点名的子智能体自带人格，脑与探索档职责固定（只读整理 / 只读调研），
-/// 给它们塞人设只会干扰，故这两档的解析结果恒为内置卡。
+/// <b>只认通用档</b>：点名的子智能体自带人格，脑与探索 / 评审档职责固定（整理 / 调研 / 评审），
+/// 给它们塞人设只会干扰，故这几档的解析结果恒为各自的内置卡。
 ///
 /// <b>公开给界面用</b>：设置页显示「当前选的是哪张卡」、以及角色被删后回退，
 /// 都得用同一份判据——界面自己再写一遍「存在 + 非内部 + 非用户卡 + 未屏蔽」就会与派活侧漂移。
@@ -74,7 +74,7 @@ public static class SubAgentDefaultCharacter
     ///
     /// 与 <see cref="SubAgentProfile"/> 的档位一一对应：
     /// 通用档 = 用户指定的默认卡（未指定则内置基座卡）；探索档沿用「探索子代理」那张内置卡；
-    /// 脑经 <c>BrainTool</c> 另建，取基座卡。
+    /// 评审档用「评审子代理」；脑经 <c>BrainTool</c> 另建，取基座卡。
     /// </summary>
     /// <param name="type">子代理档</param>
     /// <returns>身份卡标识</returns>
@@ -87,8 +87,9 @@ public static class SubAgentDefaultCharacter
     {
         return type switch
         {
-            // 探索档恒定只读，与通用档共用一张卡会让用户分不清这次委派能不能改东西
+            // 只读档各有自己的卡：名字与头像对上职责，用户一眼看得出这次委派能不能改东西
             ESubAgentType.Explorer => nameof(DefaultCharacter.LegacyExploreAgent),
+            ESubAgentType.Reviewer => nameof(DefaultCharacter.ReviewAgent),
             // 脑不挂人格，刻意不跟通用档的默认卡
             ESubAgentType.Brain => nameof(DefaultCharacter.AnonymousAgent),
             _ => Resolve(config)?.CharacterId ?? nameof(DefaultCharacter.AnonymousAgent),

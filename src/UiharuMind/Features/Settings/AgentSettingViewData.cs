@@ -39,7 +39,7 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private int _defaultPermissionModeIndex;
 
     /// <summary>
-    /// 可选模型列表(与顶栏模型选择器同源)。三档子代理模型都从它里多选，只有三行，并在常规页里。
+    /// 可选模型列表(与顶栏模型选择器同源)。各档子代理模型都从它里多选，四行都在常规页里。
     /// </summary>
     public ObservableCollection<ModelRunningData> AvailableModels { get; } = new();
 
@@ -54,9 +54,14 @@ public partial class AgentSettingViewData : ViewModelBase
     public SubAgentModelSlot BrainSubAgentModels { get; }
 
     /// <summary>
-    /// 探索档模型（CreateAgent 置 readOnly 派出），多选语义同上。空 = 回退到主代理模型。
+    /// 探索档模型（CreateAgent 置 explore 派出），多选语义同上。空 = 回退到主代理模型。
     /// </summary>
     public SubAgentModelSlot ExplorerSubAgentModels { get; }
+
+    /// <summary>
+    /// 评审档模型（CreateAgent 置 review 派出，ADR 0112），多选语义同上。空 = 回退到主代理模型。
+    /// </summary>
+    public SubAgentModelSlot ReviewerSubAgentModels { get; }
 
     /// <summary>
     /// 通用子代理默认使用的角色卡。null = 内置「通用子代理」基座卡（无人格，只拿任务书）。
@@ -73,9 +78,9 @@ public partial class AgentSettingViewData : ViewModelBase
     /// <summary>记忆清单字数上限可设范围，与 Core 夹值同一处</summary>
     public decimal MemoryIndexBudgetMax => MemoryIndex.MaxListBudget;
 
-    // 探索型子代理模型（CreateAgent 置 readOnly 派出的探索档）曾随 ADR 0044 退役、
-    // 选择器删了；现随探索档复活（SubAgentProfile.Explorer）恢复为常规页一行，与脑/通用同款。
-    // 三行都改成了多选（ADR 0111）：同一档配多个模型，派活依次取用，不让并发子代理全挤在一个模型上。
+    // 四行依次是 通用 / 探索 / 评审 / 整理（顺序由 XAML 与一条无头测试钉住）：
+    // 前三个是派活时能选的档位（CreateAgent 的 mode），整理是工具内部按需起的那一档。
+    // 都是多选（ADR 0111）：同一档配多个模型，派活依次取用，不让并发子代理全挤在一个模型上。
 
     //================= 联网搜索(能力开关已下沉到角色,见 ADR 0003) =================
     /// <summary>凭据与链路状态自成一块,见 <see cref="WebSearchSettingsViewData"/></summary>
@@ -89,7 +94,7 @@ public partial class AgentSettingViewData : ViewModelBase
     [ObservableProperty] private string _statusText = string.Empty;
 
     // 「值≠出厂值」才显示单项恢复默认按钮（SettingsRow 可见性绑定用）；
-    // 三档模型的 IsNotDefault 长在各自的槽上（空 = 回退主代理，出厂态）
+    // 各档模型的 IsNotDefault 长在各自的槽上（空 = 回退主代理，出厂态）
     public bool IsDefaultPermissionModeNotDefault => DefaultPermissionModeIndex != AgentSettingConfig.FactoryDefaultPermissionModeIndex;
     public bool IsDefaultSubAgentCharacterNotDefault => DefaultSubAgentCharacter is not null; // null = 内置基座卡，出厂态
     public bool IsMemoryIndexBudgetNotDefault => MemoryIndexBudget != AgentSettingConfig.FactoryDefaultMemoryIndexBudget;
@@ -140,6 +145,8 @@ public partial class AgentSettingViewData : ViewModelBase
             (config, names) => config.BrainSubAgentModelNames = names);
         ExplorerSubAgentModels = CreateSlot(config => config.ExplorerSubAgentModelNames,
             (config, names) => config.ExplorerSubAgentModelNames = names);
+        ReviewerSubAgentModels = CreateSlot(config => config.ReviewerSubAgentModelNames,
+            (config, names) => config.ReviewerSubAgentModelNames = names);
 
         // 回填照常走属性:handler 会跑,但闸门关着,不会在打开设置页的瞬间把配置重写一遍
         using (_writeBack.BeginLoad())
@@ -192,9 +199,9 @@ public partial class AgentSettingViewData : ViewModelBase
         _writeBack.Save();
     }
 
-    //================= 常规:子代理模型(三档同款多选槽),变更即存,之后新派出的子代理起生效 =================
+    //================= 常规:子代理模型(各档同款多选槽),变更即存,之后新派出的子代理起生效 =================
     /// <summary>
-    /// 建一档模型槽。三档只差「配置里的哪一列」，其余行为（回填、重建、恢复默认、落盘、反馈）全在槽里写一遍。
+    /// 建一档模型槽。各档只差「配置里的哪一列」，其余行为（回填、重建、恢复默认、落盘、反馈）全在槽里写一遍。
     /// </summary>
     /// <param name="read">读配置里这一档的模型名名单</param>
     /// <param name="write">写回那一列（赋值，不原地改）</param>
@@ -264,11 +271,12 @@ public partial class AgentSettingViewData : ViewModelBase
             GeneralSubAgentModels.Refresh();
             BrainSubAgentModels.Refresh();
             ExplorerSubAgentModels.Refresh();
+            ReviewerSubAgentModels.Refresh();
         }
     }
 
     /// <summary>
-    /// 从 LlmManager 加载可用模型列表,并回填三档子代理模型的已选。
+    /// 从 LlmManager 加载可用模型列表,并回填各档子代理模型的已选。
     /// 调用方需包在回填作用域里（构造里已包），否则回填引起的集合变更会误落盘。
     /// </summary>
     private void LoadAvailableModels()
@@ -277,6 +285,7 @@ public partial class AgentSettingViewData : ViewModelBase
         GeneralSubAgentModels.Load();
         BrainSubAgentModels.Load();
         ExplorerSubAgentModels.Load();
+        ReviewerSubAgentModels.Load();
     }
 
     /// <summary>

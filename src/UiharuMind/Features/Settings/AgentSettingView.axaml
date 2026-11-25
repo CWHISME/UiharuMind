@@ -32,10 +32,10 @@
                                         </ComboBox>
                                     </controls:SettingsRow.Field>
                                 </controls:SettingsRow>
-                                <!-- 子代理模型选择：三行并在常规里，不值得单独一个 Tab。
+                                <!-- 子代理模型选择：四行并在常规里，不值得单独一个 Tab。
                                      多选（Ursa MultiComboBox）：同一档配多个模型时，派活依次取用（ADR 0111）——
                                      主代理一轮里连派几个子代理，全挤在同一个模型上会撞并发限额，看起来就是卡。
-                                     勾选先后即轮换顺序。三档形状一致，控件是共用的 SubAgentModelPicker。 -->
+                                     勾选先后即轮换顺序。各档形状一致，控件是共用的 SubAgentModelPicker。 -->
                                 <controls:SettingsRow Header="{loc:Loc AgentSettingGeneralSubAgentModel}"
                                                       Description="{loc:Loc AgentSettingGeneralSubAgentModelDesc}"
                                                       ResetCommand="{Binding GeneralSubAgentModels.ResetCommand}"
@@ -44,22 +44,32 @@
                                         <vm:SubAgentModelPicker Slot="{Binding GeneralSubAgentModels}" />
                                     </controls:SettingsRow.Field>
                                 </controls:SettingsRow>
-                                <!-- 脑模型选择：同步只读整理助手配便宜小模型（ADR 0082），同样一行并在常规里 -->
-                                <controls:SettingsRow Header="{loc:Loc AgentSettingBrainSubAgentModel}"
-                                                      Description="{loc:Loc AgentSettingBrainSubAgentModelDesc}"
-                                                      ResetCommand="{Binding BrainSubAgentModels.ResetCommand}"
-                                                      ResetVisible="{Binding BrainSubAgentModels.IsNotDefault}">
-                                    <controls:SettingsRow.Field>
-                                        <vm:SubAgentModelPicker Slot="{Binding BrainSubAgentModels}" />
-                                    </controls:SettingsRow.Field>
-                                </controls:SettingsRow>
-                                <!-- 探索档模型：CreateAgent 置 readOnly 派出的调研/审阅助手（ADR 0044 复活），同样一行并在常规里 -->
+                                <!-- 探索档模型：CreateAgent 置 explore 派出的调研助手（ADR 0044 复活），同样一行并在常规里 -->
                                 <controls:SettingsRow Header="{loc:Loc AgentSettingExplorerSubAgentModel}"
                                                       Description="{loc:Loc AgentSettingExplorerSubAgentModelDesc}"
                                                       ResetCommand="{Binding ExplorerSubAgentModels.ResetCommand}"
                                                       ResetVisible="{Binding ExplorerSubAgentModels.IsNotDefault}">
                                     <controls:SettingsRow.Field>
                                         <vm:SubAgentModelPicker Slot="{Binding ExplorerSubAgentModels}" />
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
+                                <!-- 评审档模型：CreateAgent 置 review 派出的评审者（ADR 0112） -->
+                                <controls:SettingsRow Header="{loc:Loc AgentSettingReviewerSubAgentModel}"
+                                                      Description="{loc:Loc AgentSettingReviewerSubAgentModelDesc}"
+                                                      ResetCommand="{Binding ReviewerSubAgentModels.ResetCommand}"
+                                                      ResetVisible="{Binding ReviewerSubAgentModels.IsNotDefault}">
+                                    <controls:SettingsRow.Field>
+                                        <vm:SubAgentModelPicker Slot="{Binding ReviewerSubAgentModels}" />
+                                    </controls:SettingsRow.Field>
+                                </controls:SettingsRow>
+                                <!-- 整理模型：同步只读地整理大文件与被截断的工具结果（ADR 0082），排最后一行——
+                                     它是唯一一个「不在委派时选、而是工具内部按需起」的档位 -->
+                                <controls:SettingsRow Header="{loc:Loc AgentSettingBrainSubAgentModel}"
+                                                      Description="{loc:Loc AgentSettingBrainSubAgentModelDesc}"
+                                                      ResetCommand="{Binding BrainSubAgentModels.ResetCommand}"
+                                                      ResetVisible="{Binding BrainSubAgentModels.IsNotDefault}">
+                                    <controls:SettingsRow.Field>
+                                        <vm:SubAgentModelPicker Slot="{Binding BrainSubAgentModels}" />
                                     </controls:SettingsRow.Field>
                                 </controls:SettingsRow>
                                 <!-- 子代理默认角色卡：不点名的通用子代理用哪张卡的人设与名字（能力仍随派活者） -->

@@ -8,6 +8,7 @@
  ****************************************************************************/
 
 using System.Text;
+using UiharuMind.Core.AI.Execution;
 using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Tools;
 
@@ -27,9 +28,9 @@ public static class SubAgentDescriptor
     /// 按索引元数据描述一位子代理
     /// </summary>
     /// <param name="meta">子会话的索引元数据</param>
-    /// <returns>身份行，形如 `- 《主题》[短号] · 点名：X · 只读`</returns>
+    /// <returns>身份行，形如 `- 《主题》[短号] · 点名：X · 只读`（只读只在权限档为只读时出现）</returns>
     public static string Describe(ChatSessionMeta meta) =>
-        Describe(meta.Title, meta.SubAgentName, meta.SubAgentType, meta.SessionId);
+        Describe(meta.Title, meta.SubAgentName, meta.SubAgentType, meta.PermissionModeIndex, meta.SessionId);
 
     /// <summary>
     /// 按子会话本体描述一位子代理（装配与交回路径手里是它，字段同 <see cref="ChatSessionMeta"/>）
@@ -37,7 +38,7 @@ public static class SubAgentDescriptor
     /// <param name="session">子会话本体</param>
     /// <returns>身份行，与 <see cref="Describe(ChatSessionMeta)"/> 同一口径</returns>
     public static string Describe(ChatSession session) =>
-        Describe(session.Title, session.SubAgentName, session.SubAgentType, session.SessionId);
+        Describe(session.Title, session.SubAgentName, session.SubAgentType, session.PermissionModeIndex, session.SessionId);
 
     /// <summary>
     /// 上下文占用（<c>12k/32k · 模型名</c>）：主代理判断这位还剩多少、要不要换人接着干。
@@ -75,14 +76,21 @@ public static class SubAgentDescriptor
         return string.IsNullOrEmpty(modelName) ? line : $"{line} · {modelName}";
     }
 
-    private static string Describe(string title, string name, ESubAgentType type, string sessionId)
+    private static string Describe(string title, string name, ESubAgentType type, int permissionModeIndex,
+        string sessionId)
     {
         StringBuilder sb = new(title.Length > 0
             ? $"- {title}[{SubSessionIdAlias.Short(sessionId)}]"
             : $"- [{SubSessionIdAlias.Short(sessionId)}]");
         if (name.Length > 0) sb.Append(" · 点名：").Append(name);
-        // 探索档恒定只读（CreateAgent 置 readOnly 派出）：主代理续用前要知道这位改不了东西
-        if (type == ESubAgentType.Explorer) sb.Append(" · 只读");
+        // 「这位改不了东西」：判据是<b>会话自己的权限档</b>（ADR 0112 修订：三档工具集一样，
+        // 边界只由权限档回答），<b>外加脑</b>——脑的权限档是从父会话继承来的，但它本身恒只读。
+        // 主代理续用前需要这条，好决定要不要让它动手
+        if (permissionModeIndex == (int)EAgentPermissionMode.ReadOnly
+            || SubAgentProfile.IsBrainLineage(type))
+        {
+            sb.Append(" · 只读");
+        }
         return sb.ToString();
     }
 }

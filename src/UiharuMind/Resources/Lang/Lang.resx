@@ -507,7 +507,7 @@ Hit rate = cached input / reported input. The row above is the session total, wi
         <value>This session has not delegated anything yet</value>
     </data>
     <data name="AgentSubAgentBrainCount" xml:space="preserve">
-        <value>{0} brain</value>
+        <value>Plus {0} summary runs</value>
     </data>
     <data name="SubAgentHandBackTip" xml:space="preserve">
         <value>Send this sub-agent's latest conclusion back to the session that delegated it. It will read it on its next turn.</value>
@@ -579,19 +579,25 @@ Hit rate = cached input / reported input. The row above is the session total, wi
         <value>General sub-agent model</value>
     </data>
     <data name="AgentSettingGeneralSubAgentModelDesc" xml:space="preserve">
-        <value>General sub-agents do actual modification tasks. Pick the model(s) to run them on; leave empty to fall back to the main agent's model. Multiple picks are allowed: when the main agent sends out several sub-agents at once, they take the models in the order you picked them instead of queueing up on one model.</value>
+        <value>Model(s) for general sub-agents, which do the actual edits and run commands. Multiple picks are used in turn; empty follows the main agent.</value>
     </data>
     <data name="AgentSettingBrainSubAgentModel" xml:space="preserve">
         <value>Summary model</value>
     </data>
     <data name="AgentSettingBrainSubAgentModelDesc" xml:space="preserve">
-        <value>Brains summarize large files and truncated tool results with a read-only helper. Pick a small model to run them on; leave empty to fall back to the main agent's model. Multiple picks are allowed: concurrent brains take them in the order you picked.</value>
+        <value>Model(s) for read-only summarizing of big files and truncated tool results — a cheap small model fits well. Multiple picks are used in turn; empty follows the main agent.</value>
     </data>
     <data name="AgentSettingExplorerSubAgentModel" xml:space="preserve">
         <value>Explorer model</value>
     </data>
     <data name="AgentSettingExplorerSubAgentModelDesc" xml:space="preserve">
-        <value>Explorers are read-only research/review helpers. Pick a model to run them on; leave empty to fall back to the main agent's model. Multiple picks are allowed: concurrent explorers take them in the order you picked.</value>
+        <value>Model(s) for research and information gathering. Multiple picks are used in turn; empty follows the main agent.</value>
+    </data>
+    <data name="AgentSettingReviewerSubAgentModel" xml:space="preserve">
+        <value>Review model</value>
+    </data>
+    <data name="AgentSettingReviewerSubAgentModelDesc" xml:space="preserve">
+        <value>Model(s) for reviews: a verdict plus a severity-grouped list of problems. Multiple picks are used in turn; empty follows the main agent.</value>
     </data>
     <data name="AgentSettingMemoryIndexBudget" xml:space="preserve">
         <value>Memory list size limit</value>

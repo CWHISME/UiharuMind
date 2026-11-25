@@ -7,6 +7,7 @@
  * https://github.com/CWHISME/UiharuMind
  ****************************************************************************/
 
+using UiharuMind.Core.AI.Execution.Assembly;
 using UiharuMind.Core.AI.Execution.Tools;
 
 namespace UiharuMind.Core.AI.Execution.Prompts;
@@ -36,7 +37,7 @@ public static class SubAgentToolPrompts
     /// <b>刻意不数工具</b>：对方的工具集随能力配置变，写死数量迟早与装配事实矛盾。
     /// </summary>
     public const string AgentDescription =
-        "新开一位子代理：让某人在他自己的会话里干活，做完把回复交回来；" +
+        "新开一位子代理会话：让某人在他自己的会话里干活，做完把回复交回来；" +
         "他可以在回复里反问。适合用于读大量材料、一段可拆分的实现、深度调查、评审或第二意见，或你卡住的时候。\n" +
         "它在后台运行：你现在先收到一张回执。" +
         "继续做任何不依赖它的活；如果剩下的都依赖它，就结束本轮——" +
@@ -91,20 +92,29 @@ public static class SubAgentToolPrompts
         "可选的精确模型名。";
 
     /// <summary>
-    /// <c>IsExploreParam</c> 参数说明（探索档）。
+    /// <c>mode</c> 参数说明（档位，ADR 0112）。
     ///
-    /// 置真 = 派一位<b>探索档</b>：恒定只读——只能读文件与搜资料，改不了任何东西，
-    /// 适合大范围调研、审阅、摸底（翻代码找结论），不适合实现活。默认给主代理派活者权限。
-    /// 探索档默认用设置页的探索模型，<c>model</c> 仍可单趟点名。
+    /// 从前这是一个 <c>isExplore: bool</c>：第三档（评审）没地方放。现在直接给档位名。
+    ///
+    /// <b>只能是常量</b>：它要作为 <c>[Description]</c> 的实参。因此可选值在这里是字面量，
+    /// 与 <see cref="SubAgentMode.All"/> 的一致性由测试钉（新增一档而忘了写进这段话时，
+    /// 模型看不到那个值就不会用——这种漏不会报错，只能靠测试拦）。
+    ///
+    /// 三档的**权限与工具完全相同**（能不能改由权限档定），所以这里只写「适合什么活」——
+    /// 写「只读」会是假的，而模型会照着假信息预期（派个评审却改不了东西时它反而不理解）。
+    /// 写全一点它才愿意把「评审」和「调研」分开派，而不是一律丢给通用档。
     /// </summary>
-    public const string IsExploreParam =
-        "可选。将子代理指定为「探索模式」，只读，没有 shell 工具，仅适用于**仓库探索**、**信息获取**等。";
-
+    public const string ModeParam =
+        "可选档位，留空等同 general。三档能力相同（能不能改文件由你的权限档决定），只是分工不同：\n" +
+        "- general：通用子代理，实现、修改、跑命令；\n" +
+        "- explore：调研与信息获取，翻材料、找结论；\n" +
+        "- review：评审——对着已有产物（改动、文档、方案）评判。";
+    
     /// <summary>
     /// <see cref="SubAgentTool.MessageToolName"/> 的描述：给已经开过的那位续发一条，跑着时就是插话。
     /// </summary>
     public const string SendMessageDescription =
-        "给已经开过的那位子代理发一条消息：后续追问、纠正，或「继续」。" +
+        "给已经开启过的那位代理发一条消息：后续追问、纠正，或「继续」。" +
         "如果他还在干活，会把它并入正在写的回复里；无论哪种，你都会收到一条回复。";
 
     /// <summary>

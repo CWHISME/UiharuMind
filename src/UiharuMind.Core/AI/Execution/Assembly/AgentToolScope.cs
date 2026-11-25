@@ -27,11 +27,11 @@ public enum EAgentToolScope
     /// <summary>定时任务的一次运行：跑完就收工，不起活得比它久、还要叫醒它的后台任务</summary>
     ScheduledRun,
 
-    /// <summary>委派出去的子代理：拿的是一份任务书</summary>
+    /// <summary>
+    /// 委派出去的子代理：拿的是一份任务书。<b>三档（通用 / 探索 / 评审）共用这一档</b>——
+    /// 工具集与能力不因档位而变，能不能改东西由权限档回答（ADR 0112 修订）。
+    /// </summary>
     SubAgent,
-
-    /// <summary>探索档：异步后台、恒定只读的调研/审阅助手，文件只读但保留 Glob</summary>
-    Explore,
 
     /// <summary>脑（ADR 0082）：同步、有界、只读的整理助手，只给 Grep/Read</summary>
     Brain,
@@ -97,16 +97,6 @@ internal static class AgentToolScopes
 
     private static readonly AgentToolScopeRule ScheduledRunRule = MainRule with { BackgroundTasks = false };
 
-    // 探索档拿的是一份开放调研：只读文件（含 Glob）可以搜目录形状，联网与识图是读方向，
-    // 有一把给主代理的 SendMessage（异步委派的协作通道）。不带扩展（desktop/image/audio
-    // 会改东西，违背「恒定只读」）；shell 由 canMutate 独立门住，此处不列。
-    private static readonly AgentToolScopeRule ExploreRule =
-        new(new HashSet<EAgentCapability>
-        {
-            EAgentCapability.FileAccess, EAgentCapability.WebSearch,
-            EAgentCapability.VisionTool, EAgentCapability.ParentMessage,
-        }, BackgroundTasks: false, ReadOnlyFiles: true);
-
     // 脑拿的是一份整理任务：只给文件检索（Grep/Read，无 Glob——内容向，目录形状不关心），只读不改
     private static readonly AgentToolScopeRule BrainRule =
         new(new HashSet<EAgentCapability> { EAgentCapability.FileAccess }, BackgroundTasks: false, ReadOnlyFiles: true);
@@ -123,7 +113,6 @@ internal static class AgentToolScopes
         EAgentToolScope.GroupAvatar => GroupAvatarRule,
         EAgentToolScope.ScheduledRun => ScheduledRunRule,
         EAgentToolScope.SubAgent => SubAgentRule,
-        EAgentToolScope.Explore => ExploreRule,
         EAgentToolScope.Brain => BrainRule,
         _ => throw new ArgumentOutOfRangeException(nameof(scope), scope, null),
     };

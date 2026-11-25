@@ -53,7 +53,7 @@ public partial class SubAgentListViewData : ObservableObject, IDisposable
     /// <summary>有没有脑（显示顶部提示用）</summary>
     public bool HasBrains => BrainCount > 0;
 
-    /// <summary>脑数量提示文案（如「脑 M 个」）；空串不显示</summary>
+    /// <summary>整理会话的数量提示文案（如「另有 M 次整理」）；空串不显示。界面上不提「脑」——那是内部叫法</summary>
     public string BrainCountText => HasBrains ? Loc.Text(LangKey.AgentSubAgentBrainCount, BrainCount) : string.Empty;
 
     /// <param name="parentSessionIdSource">当前展示会话的标识来源（窄依赖，不反向持有主壳）</param>

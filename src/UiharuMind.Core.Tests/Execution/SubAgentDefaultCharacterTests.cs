@@ -41,7 +41,7 @@ public class SubAgentDefaultCharacterTests
     }
 
     /// <summary>
-    /// 探索档与脑不吃这一项：探索档恒定只读，共用一张卡会让用户分不清这次委派能不能改东西；
+    /// 只读档与脑不吃这一项：探索 / 评审恒定只读，共用一张卡会让用户分不清这次委派能不能改东西；
     /// 脑不挂人格。
     /// </summary>
     [Fact]
@@ -51,6 +51,8 @@ public class SubAgentDefaultCharacterTests
 
         Assert.Equal(nameof(DefaultCharacter.LegacyExploreAgent),
             SubAgentDefaultCharacter.IdentityIdOf(ESubAgentType.Explorer, config));
+        Assert.Equal(nameof(DefaultCharacter.ReviewAgent),
+            SubAgentDefaultCharacter.IdentityIdOf(ESubAgentType.Reviewer, config));
         Assert.Equal(nameof(DefaultCharacter.AnonymousAgent),
             SubAgentDefaultCharacter.IdentityIdOf(ESubAgentType.Brain, config));
     }

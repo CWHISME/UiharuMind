@@ -25,13 +25,14 @@ public sealed class ChatSessionToolsTests : IDisposable
     }
 
     private ChatSession CreateSub(string parentId, string title, ESubAgentType type = ESubAgentType.General,
-        long tokens = 0)
+        long tokens = 0, int permissionModeIndex = 1)
     {
         ChatSession session = new()
         {
             Title = title,
             ParentSessionId = parentId,
             SubAgentType = type,
+            PermissionModeIndex = permissionModeIndex,
             IsAgentForm = true,
             LastInputTokens = tokens,
         };
@@ -62,21 +63,24 @@ public sealed class ChatSessionToolsTests : IDisposable
         Assert.Contains("还没有派出过子代理", text);
     }
 
-    /// <summary>探索档像通用委派一样列条目，且带「只读」标记（它改不了东西）；脑仍不列</summary>
+    /// <summary>
+    /// 「只读」标记看的是<b>会话自己的权限档</b>，不是档位（ADR 0112 修订：三档工具集一样，
+    /// 边界只由权限档回答）。主代理续用前要知道这位改不了东西，才好决定让不让他动手
+    /// </summary>
     [Fact]
-    public void List_ListsExplorerWithReadOnlyMarker()
+    public void List_MarksReadOnlyByPermissionMode_NotByTier()
     {
-        ChatSession explorer = CreateSub("parent", "调研代码库", ESubAgentType.Explorer);
-        ChatSession general = CreateSub("parent", "实现功能", ESubAgentType.General);
+        ChatSession readOnlyExplorer = CreateSub("parent", "调研代码库", ESubAgentType.Explorer, permissionModeIndex: 0);
+        ChatSession fullAutoReviewer = CreateSub("parent", "评审这次改动", ESubAgentType.Reviewer, permissionModeIndex: 2);
 
         string text = ChatSessionTools.ListSubSessions("parent", _manager);
 
-        Assert.Contains(SubSessionIdAlias.Short(explorer.SessionId), text);
-        // 只读标记只打在探索档那一行上，通用档不带（脑不列条目由 List_ExcludesBrainSessions 钉住）
-        string explorerLine = text.Split('\n').First(x => x.Contains(SubSessionIdAlias.Short(explorer.SessionId)));
-        string generalLine = text.Split('\n').First(x => x.Contains(SubSessionIdAlias.Short(general.SessionId)));
-        Assert.Contains("只读", explorerLine);
-        Assert.DoesNotContain("只读", generalLine);
+        string readOnlyLine = text.Split('\n')
+            .First(x => x.Contains(SubSessionIdAlias.Short(readOnlyExplorer.SessionId)));
+        string fullAutoLine = text.Split('\n')
+            .First(x => x.Contains(SubSessionIdAlias.Short(fullAutoReviewer.SessionId)));
+        Assert.Contains("只读", readOnlyLine);
+        Assert.DoesNotContain("只读", fullAutoLine);
     }
 
     [Fact]

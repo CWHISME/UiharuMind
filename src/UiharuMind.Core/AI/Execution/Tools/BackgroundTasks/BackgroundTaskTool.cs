@@ -51,7 +51,7 @@ public static class BackgroundTaskTool
             "在后台运行一条 shell 命令并立即返回。" +
             $"Shell 工具本身最多等待 {ShellExecutorFactory.CommandTimeout.TotalMinutes:0} 分钟并直接返回输出，" +
             "所以本工具只用于预期要跑更久、或不会退出的命令（服务器、GUI 程序；请设 maxSeconds）。" +
-            "结束时退出码与输出末尾会以消息形式送回给你，所以不要轮询；" +
+            "结束时退出码与输出末尾会以消息形式送回给你，同时将你强制唤醒；" +
             "读返回的日志文件查进度即可。" +
             $"不传 maxSeconds 时会在 {DefaultMaxRuntime.TotalSeconds:0} 秒后停止。" +
             "不要加 `&`、`nohup` 或 `open`：凡是被它们脱离的东西都无法再被停止或限时。");
@@ -71,8 +71,8 @@ public static class BackgroundTaskTool
         try
         {
             BackgroundTask task = BackgroundTaskRegistry.Start(ownerSessionId, command, shown, maxRuntime, launch, sink);
-            return $"已启动后台任务 {task.Id}。尚无结果。" +
-                   $"结束时会自动送回结果（时限 {maxRuntime.TotalSeconds:0} 秒）；不要轮询。\n" +
+            return $"已启动后台任务 {task.Id}。" +
+                   $"任务结束时会自动送回结果并唤醒你（时限 {maxRuntime.TotalSeconds:0} 秒）；不要轮询，也无需等待，若没有其它并行处理的事务请直接结束本轮，不要空转。\n" +
                    $"日志：{task.LogPath}";
         }
         catch (Exception e)

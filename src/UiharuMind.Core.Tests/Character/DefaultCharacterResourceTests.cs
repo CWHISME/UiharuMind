@@ -94,6 +94,7 @@ public class DefaultCharacterResourceTests
     [Theory]
     [InlineData(DefaultCharacter.AnonymousAgent)]
     [InlineData(DefaultCharacter.LegacyExploreAgent)]
+    [InlineData(DefaultCharacter.ReviewAgent)]
     public void AnonymousAgentCard_IsInternalAgent(DefaultCharacter character)
     {
         CharacterData data = DefaultCharacterManager.Instance.GetCharacterData(character);
@@ -120,6 +121,7 @@ public class DefaultCharacterResourceTests
     [Theory]
     [InlineData(DefaultCharacter.AnonymousAgent)]
     [InlineData(DefaultCharacter.LegacyExploreAgent)]
+    [InlineData(DefaultCharacter.ReviewAgent)]
     public void AnonymousAgentCard_TemplateStaysEmpty(DefaultCharacter character)
     {
         CharacterData data = DefaultCharacterManager.Instance.GetCharacterData(character);

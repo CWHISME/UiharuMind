@@ -741,8 +741,8 @@ public class HarnessInstructionsCompositionTests
 /// 挂什么由能力配置定，能不能动手由 <see cref="ApprovalModeMapper"/> 定，
 /// 与主代理完全同一口径（见 ADR 0021）。
 ///
-/// 仍然钉死的两条：<b>探索档恒定只读</b>（产品决定——调研不该顺手改东西），
-/// 以及<b>工具集绝不含子代理工具自身</b>（无限递归）。
+/// 仍然钉死的两条：<b>委派的三档工具集一致、边界只由权限档回答</b>（档位只是分工，ADR 0112 修订；
+/// 曾经探索档恒定只读——那条产品决定已取消），以及<b>工具集绝不含子代理工具自身</b>（无限递归）。
 /// </summary>
 public class SubAgentBoundaryTests
 {
@@ -849,39 +849,46 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 探索档恒定只读，<b>与档位无关</b>；但与脑不同：保留 Glob 与联网——
-    /// 探索要看目录形状、翻资料，脑是内容向的整理助手（ADR 0082）。
+    /// 委派的三档（通用 / 探索 / 评审）<b>挂同一份工具集</b>（ADR 0112 修订）。
+    /// 这条替代了从前那条「探索档恒定只读」——那条产品决定已取消：挂什么只由能力配置与场合表决定，
+    /// 能不能真的动手由审批档回答（主代理同口径，见 <see cref="ApprovalModeMapper"/>）。
     /// </summary>
     [Theory]
     [InlineData(EAgentPermissionMode.ReadOnly)]
     [InlineData(EAgentPermissionMode.AutoEdit)]
     [InlineData(EAgentPermissionMode.FullAuto)]
-    public void ExplorerTools_AreReadOnly_ButKeepGlobAndWeb(EAgentPermissionMode mode)
+    public void DelegationTiers_MountTheSameTools(EAgentPermissionMode mode)
     {
-        List<string> names = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
-            NewInput(mode: mode) with { SubAgentProfile = SubAgentProfile.Explorer }));
+        string[] general = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(mode: mode) with { ShellTool = StubShellTool() })).ToArray();
+        string[] explorer = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(mode: mode) with { ShellTool = StubShellTool(), SubAgentProfile = SubAgentProfile.Explorer })).ToArray();
+        string[] reviewer = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(mode: mode) with { ShellTool = StubShellTool(), SubAgentProfile = SubAgentProfile.Reviewer })).ToArray();
 
-        // 只读文件面：Read/Glob/Grep 都在，没有写工具、没有 shell
-        Assert.Contains(FileToolNames.Read, names);
-        Assert.Contains(FileToolNames.Glob, names);
-        Assert.Contains(FileToolNames.Grep, names);
-        string[] mutating = [..FileToolNames.Mutating, CharacterRunnerFactory.ShellToolName];
-        Assert.DoesNotContain(names, name => mutating.Contains(name));
-        // 联网是读方向，探索档保留（脑不给）；识图同（默认视觉模型不附图时挂 AnalyzeImage）；
-        // 扩展会改东西（desktop/image/audio），探索档不给
-        Assert.Contains(WebSearchTool.ToolName, names);
-        Assert.Contains(WebFetchTool.ToolName, names);
-        Assert.Contains(VisionTool.ToolName, names);
-        Assert.DoesNotContain(ExtensionCalls.CallName, names);
+        Assert.Equal(general, explorer);
+        Assert.Equal(general, reviewer);
+
+        // 同一档跨权限档也一模一样：工具集只由场合表与能力配置决定，权限档只进审批规则
+        Assert.Equal(ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput(mode: EAgentPermissionMode.ReadOnly) with { ShellTool = StubShellTool() })), general);
+
+        // 三档都挂 Glob、联网、shell（脑才是那个连 Glob 都没有的内容向档，见 ADR 0082）
+        Assert.Contains(FileToolNames.Glob, general);
+        Assert.Contains(WebSearchTool.ToolName, general);
+        Assert.Contains(CharacterRunnerFactory.ShellToolName, general);
     }
 
-    /// <summary>探索档不算脑：有给主代理的那把 SendMessage（异步委派的协作通道，能续跑能反问）；脑没有</summary>
-    [Fact]
-    public void ExplorerGetsParentMessage_ButBrainDoesNot()
+    /// <summary>委派的三档都能联系主代理（异步协作通道，能续跑能反问）；脑没有</summary>
+    [Theory]
+    [InlineData(ESubAgentType.General)]
+    [InlineData(ESubAgentType.Explorer)]
+    [InlineData(ESubAgentType.Reviewer)]
+    public void DelegationTiersGetParentMessage_ButBrainDoesNot(ESubAgentType type)
     {
-        List<string> explorer = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
-            NewInput() with { SubAgentProfile = SubAgentProfile.Explorer }));
-        Assert.Contains(ParentMessageTool.ToolName, explorer);
+        List<string> readOnly = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
+            NewInput() with { SubAgentProfile = SubAgentProfile.Of(type) }));
+        Assert.Contains(ParentMessageTool.ToolName, readOnly);
 
         List<string> brain = ToolNamesOf(SubAgentAssembly.BuildSubAgentOptions(
             NewInput() with { SubAgentProfile = SubAgentProfile.Brain }));
@@ -928,21 +935,23 @@ public class SubAgentBoundaryTests
         Assert.Equal(BrainTool.MaxIterations, options.ToolApprovalAgentOptions!.MaxAutoApprovalIterations);
     }
 
-    /// <summary>探索档提示词：工具段在、没有脑纪律（不是整理脑）、只读侧不指名写工具</summary>
-    [Fact]
-    public void ExplorerInstructions_ReadOnlyButNotBrainDiscipline()
+    /// <summary>
+    /// 档位的差别落在<b>产出纪律</b>上：评审有评审纪律、探索与通用都没有，
+    /// 且三档都不该混进脑纪律（那是整理档的）。工具面既然相同，提示词里就只剩这一处不同。
+    /// </summary>
+    [Theory]
+    [InlineData(ESubAgentType.Reviewer, true)]
+    [InlineData(ESubAgentType.Explorer, false)]
+    [InlineData(ESubAgentType.General, false)]
+    public void TierDiscipline_ComesFromTheTier_NotFromTools(ESubAgentType type, bool expectsReviewDiscipline)
     {
         string instructions = SubAgentAssembly.BuildSubAgentOptions(
-                NewInput(mode: EAgentPermissionMode.FullAuto) with
-                {
-                    SubAgentProfile = SubAgentProfile.Explorer,
-                })!
+                NewInput() with { SubAgentProfile = SubAgentProfile.Of(type) })!
             .ChatOptions!.Instructions!;
 
-        Assert.Contains(AgentPromptHeadings.Tools, instructions); //工具段必须在
-        Assert.DoesNotContain(SubAgentPrompts.BrainDiscipline, instructions); //不是脑
-        Assert.DoesNotContain("`Edit`", instructions); // 只读侧不指名写工具
-        Assert.DoesNotContain("`Write`", instructions);
+        Assert.Contains(AgentPromptHeadings.Tools, instructions);
+        Assert.DoesNotContain(SubAgentPrompts.BrainDiscipline, instructions);
+        Assert.Equal(expectsReviewDiscipline, instructions.Contains(SubAgentPrompts.ReviewDiscipline));
     }
 
     /// <summary>
@@ -1044,6 +1053,36 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
+    /// <b>委派档位不再覆盖权限档</b>（ADR 0112 修订）：完全自动档派一位评审出去，它拿到的审批规则
+    /// 就是完全自动那一份，不被档位削成只读。这是「边界只剩权限档」的唯一实现点
+    /// （<c>BuildSubSessionAssembly</c> 里那段 <c>ForceReadOnly ? ReadOnly : profile.PermissionMode</c>），
+    /// 从前没有测试覆盖它——别让它在某次清理里悄悄变回「按档位判」。
+    /// </summary>
+    [Theory]
+    [InlineData(ESubAgentType.General)]
+    [InlineData(ESubAgentType.Explorer)]
+    [InlineData(ESubAgentType.Reviewer)]
+    public void SubSession_InheritsParentPermission_ForEveryDelegationTier(ESubAgentType type)
+    {
+        SubAgentAssembly.SubSessionAssembly assembled = SubAgentAssembly.BuildSubSessionAssembly(
+            NewSubSessionPlan(mode: EAgentPermissionMode.FullAuto, type: type));
+
+        Assert.Equal(ApprovalModeMapper.BuildRules(EAgentPermissionMode.FullAuto).Count,
+            assembled.Options.ToolApprovalAgentOptions!.AutoApprovalRules!.Count());
+    }
+
+    /// <summary>脑不受这条影响：它<b>恒</b>只读，父会话完全自动也不放开（ADR 0082）</summary>
+    [Fact]
+    public void SubSession_BrainIsForcedReadOnly_RegardlessOfParent()
+    {
+        SubAgentAssembly.SubSessionAssembly assembled = SubAgentAssembly.BuildSubSessionAssembly(
+            NewSubSessionPlan(mode: EAgentPermissionMode.FullAuto, type: ESubAgentType.Brain));
+
+        Assert.Equal(ApprovalModeMapper.BuildRules(EAgentPermissionMode.ReadOnly).Count,
+            assembled.Options.ToolApprovalAgentOptions!.AutoApprovalRules!.Count());
+    }
+
+    /// <summary>
     /// <b>点名的子智能体翻回普通角色后，它的老子会话不能装回工具。</b>
     ///
     /// 翻转时 <c>Tools</c> 刻意不清（翻回来不丢配置），而子会话分支从前只看
@@ -1076,7 +1115,8 @@ public class SubAgentBoundaryTests
     }
 
     private static AgentAssemblyPlan NewSubSessionPlan(AgentToolConfig? parentConfig = null,
-        bool imageModelsConfigured = false)
+        bool imageModelsConfigured = false, EAgentPermissionMode mode = EAgentPermissionMode.AutoEdit,
+        ESubAgentType type = ESubAgentType.General)
     {
         CharacterData character = new()
         {
@@ -1089,8 +1129,8 @@ public class SubAgentBoundaryTests
             Profile = new AgentBuildProfile
             {
                 Character = character,
-                PermissionMode = EAgentPermissionMode.AutoEdit,
-                SubAgent = new SubAgentIdentity("parent-1", ESubAgentType.General, string.Empty),
+                PermissionMode = mode,
+                SubAgent = new SubAgentIdentity("parent-1", type, string.Empty),
             },
             WorkingDirectory = TestWorkingDirectory,
             SubAgentParentConfig = parentConfig,
@@ -1481,12 +1521,13 @@ public class SubAgentBoundaryTests
     }
 
     /// <summary>
-    /// 探索档<b>只读</b>，所以它的提示词里不许出现写工具。
+    /// 脑<b>恒只读</b>（ADR 0082），所以它的提示词里不许出现写工具——纪律按装配结果说话，
+    /// 而脑压根没挂写工具（委派三档不同：它们挂着写工具，边界交给审批档）。
     ///
-    /// 这条曾经不成立，而且缺口是双向的：探索档连一句文件纪律都拿不到
+    /// 这条曾经不成立，而且缺口是双向的：只读侧连一句文件纪律都拿不到
     /// （上下文卫生、contextLines、limit=-1 全都没有），而通用档虽有 `Edit`/`Write`
     /// 却同样拿不到修改纪律——它收到的 shell 纪律里反倒指名了 `Edit`。
-    /// 文件操作段把写那几条按条件拼接之后，只读侧依然只有读那几条，不指名 `Edit`/`Write`。
+    /// 文件操作段把写那几条按条件拼接之后，脑那一侧依然只有读那几条，不指名 `Edit`/`Write`。
     /// </summary>
     [Fact]
     public void BrainSubAgent_GetsBrainDisciplineButNotWriteDiscipline()

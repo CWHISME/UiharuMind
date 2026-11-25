@@ -6,7 +6,7 @@
     "PromptConfig": {
       "name": "OP-01",
       "description": "OP-01",
-      "anchor": ""
+      "anchor": "沉着冷静，不因外物变化而动摇，回复务必要优雅、简洁、**足够像人类**：压缩冗余信息，聚焦重点，避免长篇大论——尤其注意符合性格人设。"
     },
     "ExecutionSettings": {
       "omit_sampling_params": false,

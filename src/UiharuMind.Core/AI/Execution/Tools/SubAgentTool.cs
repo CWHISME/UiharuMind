@@ -238,8 +238,8 @@ public static class SubAgentTool
                     string? topic = null,
                     [Description(SubAgentToolPrompts.ModelParam)]
                     string? model = null,
-                    [Description(SubAgentToolPrompts.IsExploreParam)]
-                    bool isExplore = false) => Launch(context, prompt, null, topic, model, isExplore),
+                    [Description(SubAgentToolPrompts.ModeParam)]
+                    string? mode = null) => Launch(context, prompt, null, topic, model, mode),
                 ToolName,
                 SubAgentToolPrompts.AgentDescription);
         }
@@ -252,8 +252,8 @@ public static class SubAgentTool
                 string? topic = null,
                 [Description(SubAgentToolPrompts.ModelParam)]
                 string? model = null,
-                [Description(SubAgentToolPrompts.IsExploreParam)]
-                bool isExplore = false) => Launch(context, prompt, character, topic, model, isExplore),
+                [Description(SubAgentToolPrompts.ModeParam)]
+                string? mode = null) => Launch(context, prompt, character, topic, model, mode),
             ToolName,
             SubAgentToolPrompts.AgentDescription);
         return new ParameterDescriptionFunction(function, "character",
@@ -478,10 +478,19 @@ public static class SubAgentTool
             SessionModelName = modelName,
         };
 
+    /// <summary>
+    /// 派一位出去。<c>mode</c> 选档位（general / explore / review，ADR 0112），
+    /// 它只决定<b>产出纪律、身份卡与模型</b>——<b>不决定权限边界与工具集</b>（三档同一份，
+    /// 能不能改由权限档回答），人格仍由 <c>agent</c> 点名决定。三者正交。
+    /// </summary>
     private static string Launch(LaunchContext context, string task, string? agent, string? topic = null,
-        string? model = null, bool readOnly = false)
+        string? model = null, string? mode = null)
     {
         if (string.IsNullOrWhiteSpace(task)) return "Error: 任务不能为空。";
+
+        // 档位认不出来就当场回绝：静默落进通用档会让它「以为派了个评审，实际派了个通用档」，
+        // 而模型没有任何别的渠道能发现这件事
+        if (!SubAgentMode.TryParse(mode, out ESubAgentType type)) return SubAgentMode.Reject(mode);
 
         // 空 agent 走默认;点了名才进花名册挑选,挑不到才报错
         SubAgentChoice? choice = null;
@@ -494,14 +503,14 @@ public static class SubAgentTool
             }
         }
 
-        // readOnly 置真即探索档：恒定只读、另配探索模型（ADR 0044 复活，见 SubAgentProfile.Explorer）
-        SubAgentProfile profile = readOnly ? SubAgentProfile.Explorer : context.Profile;
+        // 没点档位（mode 空，解析成 General）就沿用派活者那一档；点了名的那几档各取自己的档案
+        SubAgentProfile profile = type == ESubAgentType.General ? context.Profile : SubAgentProfile.Of(type);
         string? normalizedTopic = NormalizeTopic(topic);
         ModelChoice modelChoice = ResolveSubAgentModelName(profile, model);
         ChatSession session = CreateSubSession(context, profile.Type,
             // 匿名子代理用身份角色卡,不沿用派活者的——否则子会话窗口会顶着派活者的
             // 名字和头像,看起来像在跟主代理说话。通用档可能是用户指定的默认卡（人格也从它取），
-            // 探索档用那张只读卡（LegacyExploreAgent），与通用档顶同一个名字,用户分不清这次委派能不能改东西。
+            // 探索 / 评审各有自己的卡，署名上能看出这次派的是谁。
             // 能力仍然直接取派活者那一份(不经交集,见 SubAgentAssembly.BuildFromPlan)
             choice?.CharacterId ?? AnonymousCharacterOf(profile.Type),
             BuildTitle(task, normalizedTopic), task,
@@ -943,9 +952,9 @@ public static class SubAgentTool
     /// <summary>
     /// 匿名委派用哪张身份卡。
     ///
-    /// 只会走到 General 与 Explorer 两支（CreateAgent 只有这两档；脑经 BrainTool 另建）：
-    /// 通用档用用户指定的默认卡（未指定则为匿名基座卡）；探索档沿用「探索子代理」那张内置卡
-    /// （名字带 Legacy 但现在是活档），恒定只读、另配模型——两档身份卡分开，署名上能看出这位是不是只读活。
+    /// 委派的三档各一张（脑经 BrainTool 另建，取基座卡）：通用档用用户指定的默认卡
+    /// （未指定则为匿名基座卡）；探索档沿用「探索子代理」那张内置卡
+    /// （名字带 Legacy 但现在是活档）、评审档用「评审子代理」——各档身份卡分开，署名上能看出这次派的是谁。
     ///
     /// 判定本身收在 <see cref="SubAgentDefaultCharacter"/>：装配侧按同一处取人格，
     /// 若两边各读一次配置，就会出现「窗口显示 A、实跑人格 B」。

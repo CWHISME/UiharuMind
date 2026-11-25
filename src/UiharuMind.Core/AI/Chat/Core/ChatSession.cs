@@ -133,7 +133,7 @@ public class ChatSession
 
     /// <summary>
     /// 子会话装配成哪一种子代理。<b>必须落盘</b>：重开一个子会话续跑时，装配要按同一档重建，
-    /// 否则探索型会被重建成通用型——那就是「子代理比派活的能力更大」。仅子会话有意义。
+    /// 否则只读的脑会被重建成委派档——那就是「子代理比派活的能力更大」。仅子会话有意义。
     /// </summary>
     public ESubAgentType SubAgentType { get; set; } = ESubAgentType.General;
 

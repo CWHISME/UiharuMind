@@ -429,7 +429,7 @@ public class AgentBuildProfile
 /// 全部来自会话本体的持久化字段，重开即可原样重建。
 /// </summary>
 /// <param name="ParentSessionId">派活给它的那个会话</param>
-/// <param name="Type">子代理档（通用 / 探索）</param>
+/// <param name="Type">子代理档（通用 / 探索 / 评审；脑经 BrainTool 另建）</param>
 /// <param name="AgentName">被点名的子智能体名；空串为通用匿名子代理</param>
 /// <param name="Role">派活时给的一句话主题名称；空串为未设定（命名保留：存档兼容）</param>
 public sealed record SubAgentIdentity(string ParentSessionId, ESubAgentType Type, string AgentName, string Role = "");

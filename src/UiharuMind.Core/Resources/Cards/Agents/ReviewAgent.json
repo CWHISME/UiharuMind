@@ -1,0 +1,17 @@
+{
+  "IsAgent": true,
+  "IsUserCard": false,
+  "IsInternal": true,
+  "Config": {
+    "PromptConfig": {
+      "name": "评审子代理",
+      "description": "由智能体派出去做只读评审的子代理。"
+    },
+    "ExecutionSettings": {
+      "omit_sampling_params": false,
+      "temperature": 0.3,
+      "top_p": 1
+    }
+  },
+  "FirstGreeting": ""
+}

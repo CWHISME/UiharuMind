@@ -209,7 +209,7 @@
                                  时间文本一长一短（"末轮 08:42" / "05/06 07:08" / "1:02:03"）会把复制按钮
                                  顶到每行不同的 x 上。组内取最宽的那一格，按钮右边缘就对齐了 -->
                             <StackPanel Grid.IsSharedSizeScope="True">
-                                <!-- 脑不列条目（没名字、量大会刷屏），只在顶部给一个数量提示（ADR 0082） -->
+                                <!-- 整理会话不列条目（没名字、量大会刷屏），只在顶部给一个数量提示（ADR 0082） -->
                                 <TextBlock Classes="muted" TextWrapping="Wrap" Margin="0,0,0,6"
                                            IsVisible="{Binding SubAgents.HasBrains}"
                                            Text="{Binding SubAgents.BrainCountText}" />

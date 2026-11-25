@@ -9,7 +9,7 @@
              mc:Ignorable="d"
              x:Class="UiharuMind.Features.Settings.SubAgentModelPicker">
 
-    <!-- 一档子代理模型的多选控件：三档（通用 / 整理 / 探索）只差数据源，形状一模一样，
+    <!-- 一档子代理模型的多选控件：各档（通用 / 探索 / 评审 / 整理）只差数据源，形状一模一样，
          所以绑在控件上而不是在页面里抄三遍。绑定一律走 AncestorType 而不是 DataContext——
          控件不接管 DataContext（那是页面那份 ViewData），只有 Slot 是它自己的输入 -->
     <u:MultiComboBox ItemsSource="{Binding Slot.Candidates, RelativeSource={RelativeSource AncestorType=settings:SubAgentModelPicker}}"
