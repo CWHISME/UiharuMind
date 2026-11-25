@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -146,9 +147,77 @@ public class SubAgentModelMultiSelectTests
         Assert.Equal(1, fixture.Saves);
     }
 
+    /// <summary>
+    /// 占位文案只在「一个都没选」时出现。切页签把控件摘下再挂回（Ursa 在 <c>OnUnloaded</c> 里
+    /// 摘掉集合监听、再不挂回来），之后勾上模型——占位文案必须收起来，
+    /// 否则框里一枚标签、旁边还挂一句「未设置」（<c>MultiSelectComboBox</c> 就是补这个）。
+    /// </summary>
+    [Fact]
+    public void Placeholder_HidesAfterReloadAndSelect()
+    {
+        HeadlessUi.Run(() =>
+        {
+            Fixture fixture = new(["model-a", "model-b"]);
+            (Window window, SubAgentModelPicker picker) = fixture.Show();
+            try
+            {
+                window.Content = null; //切走
+                Pump(window);
+                window.Content = picker; //切回
+                Pump(window);
+
+                fixture.Slot.Selected.Add(fixture.Candidates[0]);
+                Pump(window);
+
+                Assert.Contains(picker.GetVisualDescendants().OfType<TextBlock>(), x => x.Text == "model-a");
+                Assert.False(Placeholder(picker).IsVisible);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// 下拉列表滚到底，滚轮不许漏到外面的设置页。Windows 上浮层是独立窗口，
+    /// 列表到底后未被处理的滚轮会被转发回主窗口（真窗口里量到过：列表停在 412，之后每格页面 +50），
+    /// 整页跟着滚、浮层随之被顶走。两处滚动容器的滚动链都关掉了
+    /// （<c>Assets/Themes/CustomPopupStyle.axaml</c>）。
+    /// </summary>
+    [Fact]
+    public void DropdownScroll_StaysInsideList()
+    {
+        HeadlessUi.Run(() =>
+        {
+            Fixture fixture = new(["model-a", "model-b"]);
+            (Window window, SubAgentModelPicker picker) = fixture.Show();
+            try
+            {
+                MultiComboBox combo = Combo(picker);
+                combo.IsDropDownOpen = true;
+                Pump(window);
+
+                Popup popup = combo.GetVisualDescendants().OfType<Popup>().Single();
+                ScrollViewer list = popup.Child!.GetVisualDescendants().OfType<ScrollViewer>().First();
+                Assert.True(popup.IsOpen);
+                Assert.False(list.IsScrollChainingEnabled);
+                //框里那一层（已选标签）同理：内容溢出时滚到底也不往下漏
+                Assert.All(combo.GetVisualDescendants().OfType<ScrollViewer>(),
+                    viewer => Assert.False(viewer.IsScrollChainingEnabled));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
     private static MultiComboBox Combo(SubAgentModelPicker picker) =>
         picker.GetVisualDescendants().OfType<MultiComboBox>().Single();
 
+    private static TextBlock Placeholder(SubAgentModelPicker picker) =>
+        picker.GetVisualDescendants().OfType<TextBlock>().Single(box => box.Name == "PlaceholderTextBlock");
     private static ModelRunningData NewModel(string name) =>
         new(new RemoteModelInfo { Config = new RemoteModelConfig { ModelName = name } });
 

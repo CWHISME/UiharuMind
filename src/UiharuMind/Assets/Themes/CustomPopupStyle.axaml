@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:u="https://irihi.tech/ursa"
         xmlns:controls="clr-namespace:UiharuMind.Shared.Controls">
 
     <!--
@@ -9,5 +10,15 @@
     -->
     <Style Selector="Popup LayoutTransformControl#PART_LayoutTransform">
         <Setter Property="controls:PopupReveal.IsEnabled" Value="True" />
+    </Style>
+
+    <!--
+        多选下拉的滚轮不出列表：列表滚到底后 ScrollContentPresenter 会把事件标成未处理
+        （IsScrollChainingEnabled 默认开），而 Windows 上浮层是独立窗口，未处理的滚轮会被转发回
+        主窗口，落到设置页的 ScrollViewer 上——整页跟着滚，浮层随之被顶走。
+        关掉滚动链：滚到底就停在列表里。内容没溢出时本来就不吃滚轮（鼠标停在框上照样滚页面）。
+    -->
+    <Style Selector="u|MultiComboBox /template/ ScrollViewer">
+        <Setter Property="ScrollViewer.IsScrollChainingEnabled" Value="False" />
     </Style>
 </Styles>

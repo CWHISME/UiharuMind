@@ -2,7 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:u="https://irihi.tech/ursa"
+             xmlns:controls="clr-namespace:UiharuMind.Shared.Controls"
              xmlns:loc="clr-namespace:UiharuMind.Shared.Markup"
              xmlns:core="clr-namespace:UiharuMind.Core.AI.Core;assembly=UiharuMind.Core"
              xmlns:settings="clr-namespace:UiharuMind.Features.Settings"
@@ -11,22 +11,24 @@
 
     <!-- 一档子代理模型的多选控件：各档（通用 / 探索 / 评审 / 整理）只差数据源，形状一模一样，
          所以绑在控件上而不是在页面里抄三遍。绑定一律走 AncestorType 而不是 DataContext——
-         控件不接管 DataContext（那是页面那份 ViewData），只有 Slot 是它自己的输入 -->
-    <u:MultiComboBox ItemsSource="{Binding Slot.Candidates, RelativeSource={RelativeSource AncestorType=settings:SubAgentModelPicker}}"
-                     SelectedItems="{Binding Slot.Selected, RelativeSource={RelativeSource AncestorType=settings:SubAgentModelPicker}}"
-                     PlaceholderText="{loc:Loc AgentSettingSubAgentMultiFallbackHint}"
-                     MinWidth="320" MaxWidth="380">
-        <u:MultiComboBox.ItemTemplate>
+         控件不接管 DataContext（那是页面那份 ViewData），只有 Slot 是它自己的输入。
+         用 MultiSelectComboBox 而不是裸的 u:MultiComboBox：占位文案的显隐归它管（见那个类） -->
+    <controls:MultiSelectComboBox
+        ItemsSource="{Binding Slot.Candidates, RelativeSource={RelativeSource AncestorType=settings:SubAgentModelPicker}}"
+        SelectedItems="{Binding Slot.Selected, RelativeSource={RelativeSource AncestorType=settings:SubAgentModelPicker}}"
+        PlaceholderText="{loc:Loc AgentSettingSubAgentMultiFallbackHint}"
+        MinWidth="320" MaxWidth="380">
+        <controls:MultiSelectComboBox.ItemTemplate>
             <DataTemplate x:DataType="core:ModelRunningData">
                 <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             </DataTemplate>
-        </u:MultiComboBox.ItemTemplate>
+        </controls:MultiSelectComboBox.ItemTemplate>
         <!-- 框里已选的那几枚标签：窄一点，多了靠 WrapPanel 换行 -->
-        <u:MultiComboBox.SelectedItemTemplate>
+        <controls:MultiSelectComboBox.SelectedItemTemplate>
             <DataTemplate x:DataType="core:ModelRunningData">
                 <TextBlock Text="{Binding ModelName}" VerticalAlignment="Center"
                            MaxWidth="240" TextTrimming="CharacterEllipsis" />
             </DataTemplate>
-        </u:MultiComboBox.SelectedItemTemplate>
-    </u:MultiComboBox>
+        </controls:MultiSelectComboBox.SelectedItemTemplate>
+    </controls:MultiSelectComboBox>
 </UserControl>
