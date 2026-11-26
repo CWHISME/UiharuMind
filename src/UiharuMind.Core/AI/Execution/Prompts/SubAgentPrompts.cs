@@ -56,7 +56,7 @@ public static class SubAgentPrompts
     /// <summary>
     /// 评审档（ADR 0112）的身份纪律。工具集与通用档相同（能不能改由权限档定），区别全在这里：
     /// </summary>
-    public const string ReviewDiscipline = "你是来评审的：看清现状，给出判断——你的活是评，不是改，发现问题写进结论里。";
+    public const string ReviewDiscipline = "**对抗性评审**——目标是挑出问题，不是确认它做得对。看清现状，给出判断——你的活是评，不是改，发现问题写进结论里。";
     
     /// <summary>
     /// 协作段正文
@@ -75,8 +75,8 @@ public static class SubAgentPrompts
             - 凡是以 {SubAgentTool.ParentInterjectionPrefix} 开头的消息都是等你回答的问题：必须直接回应，不能只收下不答。
             - 事情的前提、目标或方案本身有问题时，直接指出并问回去，不要只顺着做。
             - 事情里没给的信息不要猜着补。缺什么就说缺什么——可以先做能做的部分，也可以直接停下来问回去。
-            - 交终版结论时先给结论、再给依据（路径、链接、原文）；讨论轮里不必套这个格式。
-            - 每一轮都要以一段文本收尾，这段文本会原样回送给主代理，不要让工具调用做最后一个动作，但是不要跟收尾的 SendMessage 信息重复(不然 {SubAgentTool.ParentInterjectionPrefix} 会看到双份同样内容)。
+            - 交终版结论时先给结论、再给依据（路径、链接、原文）——评审或调研优先将报告写入文件；讨论轮里不必套这个格式。
+            - 每一轮都要以一段文本收尾，这段文本会原样回送给主代理，不要让工具调用做最后一个动作，也不要跟 SendMessage 发送过的信息重复(不然 {SubAgentTool.ParentInterjectionPrefix} 会看到双份同样内容)。
         """;
 
     /// <summary>「你可以主动联系主代理」那条，只进通用档（脑不反问）</summary>
