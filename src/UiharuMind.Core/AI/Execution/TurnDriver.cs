@@ -248,6 +248,11 @@ public sealed partial class TurnDriver : IDisposable
             List<ChatMessage>? nextMessages = userMessage == null ? new() : new() { userMessage };
             bool firstRound = true; //唤醒轮首轮输入为空,不能被 Count > 0 挡在循环外
 
+            // 跨服务调用的退化循环看门狗,与轮次同寿（审批往返之间也不复位）：
+            // 单条流内的字符级复读由 LazyChatClient 的 RepetitionLoopWatch 管,这个抓的是
+            // 「思考→调工具→又是一模一样的思考→又调同一把工具」这种跨迭代重放。
+            ToolCallLoopWatch toolLoopWatch = new(session.ChatModelRunningData?.ModelName);
+
             // 登记运行态,直到本轮彻底结束:切走这个会话之后它仍在跑,界面靠这个标记
             // 在列表与导航栏上把它显示出来,删除与清空历史也据此拦下
             runScope = SessionManager.Instance.Running.BeginRun(session.SessionId);
@@ -299,6 +304,9 @@ public sealed partial class TurnDriver : IDisposable
                     {
                         await foreach (AIContent content in runner.RunAsync(nextMessages, cancellationToken))
                         {
+                            // 退化循环看门狗:跨服务调用攒思考+工具签名,认出整段重放就抛,
+                            // 由本方法末尾的 catch 统一收口(与 RepetitionLoopException 同款)
+                            toolLoopWatch.Observe(content);
                             // 调用边界：工具结果落进流里，下一次调用从这里起算（首帧重新等）。
                             // 不用 MessageBoundaryContent：它是落盘时补发的，实测可能晚于下一次调用的首条内容
                             // 也不能把重发标记当首帧：它在重发刚起步时就到，算出来的首字耗时是假的
